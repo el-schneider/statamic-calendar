@@ -45,6 +45,9 @@ class Events extends Tags
      */
     public function currentOccurrence(): mixed
     {
+        $param = (string) config('statamic-calendar.url.query_string.param', 'date');
+        $dateString = request()->query($param);
+
         $entryId = $this->context->get('id');
 
         if ($entryId instanceof \Statamic\Fields\Value) {
@@ -53,11 +56,12 @@ class Events extends Tags
 
         $entry = is_string($entryId) ? Entry::find($entryId) : null;
 
-        if (! $entry) {
+        if (! $entry || ! $dateString) {
             return '';
         }
 
-        $occurrence = $this->resolveCurrentOccurrence($entry);
+        $date = Carbon::parse((string) $dateString);
+        $occurrence = $this->resolver->findOccurrenceOnDate($entry, $date);
 
         if (! $occurrence) {
             return '';
@@ -71,48 +75,6 @@ class Events extends Tags
             'recurrence_description' => $occurrence->recurrenceDescription,
             'occurrence_url' => $occurrence->url(),
         ]);
-    }
-
-    private function resolveCurrentOccurrence($entry): ?Occurrence
-    {
-        $param = (string) config('statamic-calendar.url.query_string.param', 'date');
-        $dateString = request()->query($param);
-
-        if ($dateString) {
-            $date = Carbon::parse((string) $dateString);
-
-            return $this->resolver->findOccurrenceOnDate($entry, $date);
-        }
-
-        // No date param — resolve the next upcoming occurrence, or the most recent past one.
-        $now = Carbon::now();
-        $upcoming = $this->resolver->resolve($entry, $now, limit: 1);
-
-        if ($upcoming->isNotEmpty()) {
-            return $upcoming->first();
-        }
-
-        // No future occurrences — find the most recent past one.
-        $earliest = $this->findEarliestStart($entry);
-
-        if (! $earliest) {
-            return null;
-        }
-
-        return $this->resolver->resolve($entry, $earliest, $now)
-            ->last();
-    }
-
-    private function findEarliestStart($entry): ?Carbon
-    {
-        $dates = $entry->get((string) config('statamic-calendar.fields.dates.handle', 'dates')) ?? [];
-        $startKey = (string) config('statamic-calendar.fields.dates.keys.start_date', 'start_date');
-
-        return collect($dates)
-            ->filter(fn ($d) => is_array($d) && ! empty($d[$startKey]))
-            ->map(fn ($d) => Carbon::parse((string) $d[$startKey]))
-            ->sort()
-            ->first();
     }
 
     /**
