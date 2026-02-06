@@ -37,9 +37,15 @@ class ServiceProvider extends AddonServiceProvider
             $this->loadRoutesFrom(__DIR__.'/../routes/web.php');
         }
 
+        $this->app['view']->addLocation(__DIR__.'/../resources/views');
+
         $this->publishes([
             __DIR__.'/../config/statamic-calendar.php' => config_path('statamic-calendar.php'),
         ], 'statamic-calendar');
+
+        $this->publishes([
+            __DIR__.'/../resources/views/statamic-calendar' => resource_path('views/statamic-calendar'),
+        ], 'statamic-calendar-views');
 
         $this->publishes([
             __DIR__.'/../resources/examples' => resource_path('vendor/statamic-calendar/examples'),

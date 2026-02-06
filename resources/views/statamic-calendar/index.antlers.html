@@ -1,0 +1,17 @@
+<h1 class="text-3xl font-bold mb-8">Upcoming Events</h1>
+
+<div class="w-full max-w-2xl space-y-4">
+    {{ events from="now" limit="30" }}
+        <a href="{{ url }}" class="block p-4 bg-white dark:bg-zinc-800 rounded shadow hover:shadow-md transition">
+            <h2 class="text-lg font-semibold">{{ title }}</h2>
+            <p class="text-sm text-zinc-500 dark:text-zinc-400">
+                {{ start format="l, M j, Y" }}
+                {{ if start_time }}at {{ start format="g:i A" }}{{ /if }}
+                {{ if is_all_day }}(All day){{ /if }}
+            </p>
+            {{ if is_recurring }}
+                <p class="text-xs text-zinc-400 dark:text-zinc-500 mt-1">↻ {{ recurrence_description }}</p>
+            {{ /if }}
+        </a>
+    {{ /events }}
+</div>

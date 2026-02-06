@@ -1,0 +1,47 @@
+<div class="w-full max-w-2xl">
+    <a href="/events" class="text-sm text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 mb-4 inline-block">← Back to events</a>
+
+    <h1 class="text-3xl font-bold mb-4">{{ title }}</h1>
+
+    {{# Specific occurrence view — when ?date= is present #}}
+    {{ events:current_occurrence }}
+        <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm mb-8">
+            <dt class="font-medium text-zinc-500">Date</dt>
+            <dd>{{ start format="l, F j, Y" }}</dd>
+
+            {{ if !is_all_day }}
+                <dt class="font-medium text-zinc-500">Time</dt>
+                <dd>
+                    {{ start format="g:i A" }}{{ if end }} – {{ end format="g:i A" }}{{ /if }}
+                </dd>
+            {{ else }}
+                <dt class="font-medium text-zinc-500">Time</dt>
+                <dd>All day</dd>
+            {{ /if }}
+
+            {{ if is_recurring }}
+                <dt class="font-medium text-zinc-500">Repeats</dt>
+                <dd>{{ recurrence_description }}</dd>
+            {{ /if }}
+        </dl>
+    {{ /events:current_occurrence }}
+
+    {{# Upcoming occurrences #}}
+    {{ events:next_occurrences :entry="id" limit="10" }}
+        {{ if first }}
+            <h2 class="text-lg font-semibold mb-3">Upcoming Dates</h2>
+            <ul class="space-y-1 text-sm">
+        {{ /if }}
+
+        <li>
+            <a href="{{ url }}" class="hover:underline">
+                {{ start format="l, M j, Y" }}
+                {{ if !is_all_day }}at {{ start format="g:i A" }}{{ /if }}
+            </a>
+        </li>
+
+        {{ if last }}
+            </ul>
+        {{ /if }}
+    {{ /events:next_occurrences }}
+</div>
