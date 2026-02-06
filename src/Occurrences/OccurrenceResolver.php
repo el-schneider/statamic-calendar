@@ -9,7 +9,6 @@ use Illuminate\Support\Collection;
 use RRule\RRule;
 use RRule\RSet;
 use Statamic\Entries\Entry;
-use Throwable;
 
 class OccurrenceResolver
 {
@@ -54,7 +53,7 @@ class OccurrenceResolver
 
     private function resolveDateRow(Entry $entry, array $row, Carbon $from, ?Carbon $to, ?int $limit): Collection
     {
-        $isRecurring = (bool) ($row[$this->k('is_recurring')] ?? false);
+        $isRecurring = (bool) ($row['is_recurring'] ?? false);
 
         if (! $isRecurring) {
             return $this->resolveSingleDate($entry, $row, $from, $to);
@@ -74,7 +73,7 @@ class OccurrenceResolver
         $rset = new RSet();
         $rset->addRRule($rruleParams);
 
-        foreach (($row[$this->k('exclusions')] ?? []) as $exclusion) {
+        foreach (($row['exclusions'] ?? []) as $exclusion) {
             if (! is_array($exclusion) || empty($exclusion['date'])) {
                 continue;
             }
@@ -83,13 +82,13 @@ class OccurrenceResolver
             if (! empty($exclusion['time'])) {
                 $exdate .= ' '.(string) $exclusion['time'];
             } else {
-                $exdate .= ' '.(string) ($row[$this->k('start_time')] ?? '00:00');
+                $exdate .= ' '.(string) ($row['start_time'] ?? '00:00');
             }
 
             $rset->addExDate($exdate);
         }
 
-        foreach (($row[$this->k('additions')] ?? []) as $addition) {
+        foreach (($row['additions'] ?? []) as $addition) {
             if (! is_array($addition) || empty($addition['date'])) {
                 continue;
             }
@@ -102,7 +101,7 @@ class OccurrenceResolver
         }
 
         $occurrences = collect();
-        $endTime = $row[$this->k('end_time')] ?? null;
+        $endTime = $row['end_time'] ?? null;
         $recurrenceDescription = $this->buildRecurrenceDescription($row);
 
         foreach ($rset as $date) {
@@ -116,7 +115,7 @@ class OccurrenceResolver
                 break;
             }
 
-            $additionEndTime = $this->getAdditionEndTime($row[$this->k('additions')] ?? [], $start);
+            $additionEndTime = $this->getAdditionEndTime($row['additions'] ?? [], $start);
             $effectiveEndTime = $additionEndTime ?? $endTime;
 
             $end = null;
@@ -128,7 +127,7 @@ class OccurrenceResolver
                 event: $entry,
                 start: $start,
                 end: $end,
-                isAllDay: (bool) ($row[$this->k('is_all_day')] ?? false),
+                isAllDay: (bool) ($row['is_all_day'] ?? false),
                 isRecurring: true,
                 recurrenceDescription: $recurrenceDescription,
             ));
@@ -162,36 +161,36 @@ class OccurrenceResolver
 
     private function buildRruleParams(array $row): array
     {
-        $startDate = (string) $row[$this->k('start_date')];
-        $startTime = (string) ($row[$this->k('start_time')] ?? '00:00');
+        $startDate = (string) $row['start_date'];
+        $startTime = (string) ($row['start_time'] ?? '00:00');
         $dtstart = $startDate.' '.$startTime;
 
         $params = [
-            'FREQ' => $row[$this->k('frequency')],
-            'INTERVAL' => $row[$this->k('interval')] ?? 1,
+            'FREQ' => $row['frequency'],
+            'INTERVAL' => $row['interval'] ?? 1,
             'DTSTART' => $dtstart,
         ];
 
-        if (($row[$this->k('frequency')] ?? null) === 'WEEKLY' && ! empty($row[$this->k('weekdays')])) {
-            $params['BYDAY'] = $row[$this->k('weekdays')];
+        if (($row['frequency'] ?? null) === 'WEEKLY' && ! empty($row['weekdays'])) {
+            $params['BYDAY'] = $row['weekdays'];
         }
 
-        if (($row[$this->k('frequency')] ?? null) === 'MONTHLY' && ($row[$this->k('monthly_type')] ?? null) === 'weekday_position') {
-            $ordinal = (string) ($row[$this->k('weekday_ordinal')] ?? '1');
-            $weekday = (string) ($row[$this->k('weekday')] ?? 'MO');
+        if (($row['frequency'] ?? null) === 'MONTHLY' && ($row['monthly_type'] ?? null) === 'weekday_position') {
+            $ordinal = (string) ($row['weekday_ordinal'] ?? '1');
+            $weekday = (string) ($row['weekday'] ?? 'MO');
             $params['BYDAY'] = $ordinal.$weekday;
         }
 
-        if (($row[$this->k('frequency')] ?? null) === 'MONTHLY' && ($row[$this->k('monthly_type')] ?? null) === 'day_of_month') {
-            $params['BYMONTHDAY'] = $row[$this->k('monthday')] ?? 1;
+        if (($row['frequency'] ?? null) === 'MONTHLY' && ($row['monthly_type'] ?? null) === 'day_of_month') {
+            $params['BYMONTHDAY'] = $row['monthday'] ?? 1;
         }
 
-        $recurrenceEnd = $row[$this->k('recurrence_end')] ?? 'never';
-        if ($recurrenceEnd === 'count' && ! empty($row[$this->k('count')])) {
-            $params['COUNT'] = $row[$this->k('count')];
+        $recurrenceEnd = $row['recurrence_end'] ?? 'never';
+        if ($recurrenceEnd === 'count' && ! empty($row['count'])) {
+            $params['COUNT'] = $row['count'];
         }
-        if ($recurrenceEnd === 'until' && ! empty($row[$this->k('until')])) {
-            $params['UNTIL'] = $row[$this->k('until')];
+        if ($recurrenceEnd === 'until' && ! empty($row['until'])) {
+            $params['UNTIL'] = $row['until'];
         }
 
         return $params;
@@ -199,8 +198,8 @@ class OccurrenceResolver
 
     private function resolveSingleDate(Entry $entry, array $row, Carbon $from, ?Carbon $to): Collection
     {
-        $start = $this->parseDateTime($row[$this->k('start_date')] ?? null, $row[$this->k('start_time')] ?? null);
-        $end = $this->parseDateTime($row[$this->k('end_date')] ?? null, $row[$this->k('end_time')] ?? null);
+        $start = $this->parseDateTime($row['start_date'] ?? null, $row['start_time'] ?? null);
+        $end = $this->parseDateTime($row['end_date'] ?? null, $row['end_time'] ?? null);
 
         if (! $start) {
             return collect();
@@ -215,7 +214,7 @@ class OccurrenceResolver
                 event: $entry,
                 start: $start,
                 end: $end,
-                isAllDay: (bool) ($row[$this->k('is_all_day')] ?? false),
+                isAllDay: (bool) ($row['is_all_day'] ?? false),
                 isRecurring: false,
             ),
         ]);
@@ -242,7 +241,7 @@ class OccurrenceResolver
         $rrule = new RRule($rruleParams);
 
         return $rrule->humanReadable([
-            'locale' => (string) $this->cfg('app.locale', 'en'),
+            'locale' => (string) config('app.locale', 'en'),
             'include_start' => false,
             'include_until' => false,
         ]);
@@ -250,20 +249,6 @@ class OccurrenceResolver
 
     private function datesField(): string
     {
-        return (string) $this->cfg('statamic-calendar.fields.dates.handle', 'dates');
-    }
-
-    private function k(string $key): string
-    {
-        return (string) $this->cfg('statamic-calendar.fields.dates.keys.'.$key, $key);
-    }
-
-    private function cfg(string $key, mixed $default): mixed
-    {
-        try {
-            return config($key, $default);
-        } catch (Throwable) {
-            return $default;
-        }
+        return (string) config('statamic-calendar.fields.dates', 'dates');
     }
 }

@@ -103,13 +103,14 @@ class OccurrenceCache
 
         foreach ($entries as $entry) {
             $dates = $entry->get($this->datesField()) ?? [];
+            $startDateKey = 'start_date';
             if (empty($dates)) {
                 continue;
             }
 
             $eventFrom = collect($dates)
-                ->filter(fn ($d) => is_array($d) && ! empty($d[$this->k('start_date')]))
-                ->map(fn ($d) => Carbon::parse((string) $d[$this->k('start_date')]))
+                ->filter(fn ($d) => is_array($d) && ! empty($d[$startDateKey]))
+                ->map(fn ($d) => Carbon::parse((string) $d[$startDateKey]))
                 ->sortBy(fn (Carbon $date) => $date->timestamp)
                 ->first();
 
@@ -257,11 +258,6 @@ class OccurrenceCache
 
     private function datesField(): string
     {
-        return (string) config('statamic-calendar.fields.dates.handle', 'dates');
-    }
-
-    private function k(string $key): string
-    {
-        return (string) config('statamic-calendar.fields.dates.keys.'.$key, $key);
+        return (string) config('statamic-calendar.fields.dates', 'dates');
     }
 }

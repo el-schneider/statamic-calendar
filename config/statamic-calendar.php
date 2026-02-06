@@ -25,34 +25,12 @@ return [
     */
 
     'fields' => [
-        'dates' => [
-            'handle' => 'dates',
-            'keys' => [
-                'start_date' => 'start_date',
-                'start_time' => 'start_time',
-                'end_date' => 'end_date',
-                'end_time' => 'end_time',
-                'is_all_day' => 'is_all_day',
-
-                'is_recurring' => 'is_recurring',
-                'frequency' => 'frequency',
-                'interval' => 'interval',
-
-                'weekdays' => 'weekdays',
-
-                'monthly_type' => 'monthly_type',
-                'monthday' => 'monthday',
-                'weekday_ordinal' => 'weekday_ordinal',
-                'weekday' => 'weekday',
-
-                'recurrence_end' => 'recurrence_end',
-                'count' => 'count',
-                'until' => 'until',
-
-                'exclusions' => 'exclusions',
-                'additions' => 'additions',
-            ],
-        ],
+        /*
+        | The grid field handle on event entries that contains the dates.
+        | Sub-field handles (start_date, start_time, etc.) are fixed —
+        | use the provided example blueprint as a starting point.
+        */
+        'dates' => 'dates',
 
         'teaser' => 'teaser',
         'teaser_fallback' => 'description',
