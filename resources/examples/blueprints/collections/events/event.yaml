@@ -11,25 +11,9 @@ tabs:
             field:
               type: text
               required: true
-              input_type: text
-              localizable: true
-              listable: true
               display: Title
               validate:
                 - required
-          -
-            handle: teaser
-            field:
-              type: textarea
-              display: Teaser
-              instructions: 'Kurzbeschreibung für Listenansichten (max. 160 Zeichen). Falls leer, wird automatisch aus der Beschreibung abgeleitet.'
-              character_limit: 160
-              antlers: false
-          -
-            handle: content
-            field: common.text_basic
-            config:
-              display: Inhalt
       -
         display: Dates
         fields:
@@ -94,7 +78,6 @@ tabs:
                   field:
                     type: select
                     display: Frequency
-                    instructions: 'How often does this event repeat?'
                     options:
                       DAILY: Daily
                       WEEKLY: Weekly
@@ -109,7 +92,7 @@ tabs:
                   field:
                     type: integer
                     display: Interval
-                    instructions: 'Repeat every X periods (e.g., every 2 weeks)'
+                    instructions: 'Repeat every X periods'
                     default: 1
                     width: 50
                     if:
@@ -119,7 +102,6 @@ tabs:
                   field:
                     type: checkboxes
                     display: 'Repeat on Days'
-                    instructions: 'For weekly recurrence'
                     options:
                       MO: Monday
                       TU: Tuesday
@@ -141,7 +123,6 @@ tabs:
                       day_of_month: 'Day of month'
                       weekday_position: 'Weekday position'
                     default: day_of_month
-                    width: 100
                     if:
                       is_recurring: 'equals true'
                       frequency: 'equals MONTHLY'
@@ -150,7 +131,6 @@ tabs:
                   field:
                     type: integer
                     display: 'Day of Month'
-                    instructions: 'e.g., 15 for the 15th'
                     width: 50
                     if:
                       is_recurring: 'equals true'
@@ -201,7 +181,6 @@ tabs:
                       count: 'After X occurrences'
                       until: 'On date'
                     default: never
-                    width: 100
                     if:
                       is_recurring: 'equals true'
                 -
@@ -230,7 +209,7 @@ tabs:
                   field:
                     type: grid
                     display: Exclusions
-                    instructions: 'Dates to exclude from the recurrence (EXDATE)'
+                    instructions: 'Dates to exclude from the recurrence'
                     add_row: 'Add Exclusion'
                     mode: table
                     if:
@@ -251,7 +230,6 @@ tabs:
                         field:
                           type: text
                           display: Time
-                          instructions: 'Optional, for time-specific exclusions'
                           input_type: time
                           width: 33
                 -
@@ -259,7 +237,7 @@ tabs:
                   field:
                     type: grid
                     display: 'Additional Dates'
-                    instructions: 'One-off dates outside the recurrence pattern (RDATE)'
+                    instructions: 'One-off dates outside the recurrence pattern'
                     add_row: 'Add Date'
                     mode: table
                     if:
@@ -289,33 +267,6 @@ tabs:
                           display: 'End Time'
                           input_type: time
                           width: 33
-  seo:
-    display: SEO
-    sections:
-      -
-        display: Basic
-        instructions: 'Basic SEO settings.'
-        fields:
-          -
-            import: 'statamic-peak-seo::seo_basic'
-      -
-        display: Advanced
-        instructions: 'Advanced SEO settings.'
-        fields:
-          -
-            import: 'statamic-peak-seo::seo_advanced'
-      -
-        display: 'Open Graph'
-        instructions: 'Open Graph meta tags for social sharing.'
-        fields:
-          -
-            import: 'statamic-peak-seo::seo_open_graph'
-      -
-        display: Sitemap
-        instructions: 'Sitemap configuration.'
-        fields:
-          -
-            import: 'statamic-peak-seo::seo_sitemap'
   sidebar:
     display: Sidebar
     sections:
@@ -332,21 +283,3 @@ tabs:
               display: Slug
               validate:
                 - required
-          -
-            handle: member
-            field:
-              type: entries
-              collections:
-                - members
-              max_items: 1
-              display: Mitgliedsorganisation
-              instructions: 'Die Organisation, die dieses Event veranstaltet.'
-              listable: true
-          -
-            handle: event_tags
-            field:
-              type: terms
-              taxonomies:
-                - event_tags
-              display: Tags
-              mode: select
