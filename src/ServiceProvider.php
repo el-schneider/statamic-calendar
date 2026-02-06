@@ -7,6 +7,7 @@ namespace ElSchneider\StatamicCalendar;
 use ElSchneider\StatamicCalendar\Console\Commands\RebuildOccurrenceCacheCommand;
 use ElSchneider\StatamicCalendar\Listeners\RebuildOccurrenceCacheOnEntryChange;
 use ElSchneider\StatamicCalendar\Occurrences\OccurrenceCache;
+use Illuminate\Support\Facades\Route;
 use Statamic\Events\EntryDeleted;
 use Statamic\Events\EntrySaved;
 use Statamic\Providers\AddonServiceProvider;
@@ -39,6 +40,8 @@ class ServiceProvider extends AddonServiceProvider
     {
         $this->app['view']->addLocation(__DIR__.'/../resources/views');
 
+        $this->registerRoutes();
+
         $this->publishes([
             __DIR__.'/../config/statamic-calendar.php' => config_path('statamic-calendar.php'),
         ], 'statamic-calendar');
@@ -50,5 +53,14 @@ class ServiceProvider extends AddonServiceProvider
         $this->publishes([
             __DIR__.'/../resources/examples' => resource_path('vendor/statamic-calendar/examples'),
         ], 'statamic-calendar-examples');
+    }
+
+    protected function registerRoutes(): void
+    {
+        $index = config('statamic-calendar.routes.index');
+
+        if ($index) {
+            Route::statamic($index, 'statamic-calendar/index');
+        }
     }
 }

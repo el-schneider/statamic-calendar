@@ -50,6 +50,23 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Routes
+    |--------------------------------------------------------------------------
+    |
+    | The addon can automatically register a front-end route for the calendar
+    | index page. Set to false to disable and wire your own route instead.
+    |
+    | The template is resolved as "statamic-calendar/index" — override it by
+    | publishing views or placing your own in resources/views/statamic-calendar/.
+    |
+    */
+
+    'routes' => [
+        'index' => '/calendar',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Occurrence URLs
     |--------------------------------------------------------------------------
     |
