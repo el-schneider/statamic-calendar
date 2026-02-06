@@ -96,6 +96,123 @@ class Calendar extends Tags
             ->all();
     }
 
+    /**
+     * Returns a month grid with weeks, days, and occurrences.
+     *
+     * Usage: {{ calendar:month param="month" week_starts_on="1" }}
+     */
+    public function month(): mixed
+    {
+        $param = (string) $this->params->get('param', 'month');
+        $weekStartsOn = $this->params->int('week_starts_on', 1);
+        $fixedRows = $this->params->bool('fixed_rows', false);
+        $collection = (string) $this->params->get('collection', config('statamic-calendar.collection', 'events'));
+        $tags = $this->params->get('tags');
+
+        $monthValue = request()->query($param);
+        $current = ($monthValue && is_string($monthValue) && preg_match('/^\d{4}-\d{2}$/', $monthValue))
+            ? Carbon::createFromFormat('Y-m', $monthValue)->startOfMonth()
+            : Carbon::now()->startOfMonth();
+
+        [$gridStart, $gridEnd] = $this->monthGridBoundaries($current, $weekStartsOn, $fixedRows);
+
+        $occurrences = ($collection === config('statamic-calendar.collection', 'events'))
+            ? $this->indexFromCache($gridStart, $gridEnd, null, $tags)
+            : $this->indexFromResolver($collection, $gridStart, $gridEnd, null, $tags);
+
+        $grouped = collect($occurrences)->groupBy(
+            fn (array $o) => Carbon::parse($o['start'])->format('Y-m-d')
+        );
+
+        $weeks = $this->buildWeeks($gridStart, $gridEnd, $current, $grouped);
+        $dayLabels = $this->buildDayLabels($gridStart);
+
+        $query = request()->query();
+        $query[$param] = $current->copy()->subMonth()->format('Y-m');
+        $prevUrl = '?'.http_build_query($query);
+        $query[$param] = $current->copy()->addMonth()->format('Y-m');
+        $nextUrl = '?'.http_build_query($query);
+
+        return $this->parse([
+            'month_label' => $current->translatedFormat('F Y'),
+            'year' => $current->year,
+            'month' => $current->month,
+            'prev_url' => $prevUrl,
+            'next_url' => $nextUrl,
+            'today' => Carbon::today()->format('Y-m-d'),
+            'day_labels' => $dayLabels,
+            'weeks' => $weeks,
+        ]);
+    }
+
+    /**
+     * @return array{0: Carbon, 1: Carbon}
+     */
+    private function monthGridBoundaries(Carbon $month, int $weekStartsOn, bool $fixedRows = false): array
+    {
+        $gridStart = $month->copy()->startOfMonth();
+        while ($gridStart->dayOfWeek !== $weekStartsOn) {
+            $gridStart->subDay();
+        }
+
+        $gridEnd = $month->copy()->endOfMonth();
+        $weekEndsOn = ($weekStartsOn + 6) % 7;
+        while ($gridEnd->dayOfWeek !== $weekEndsOn) {
+            $gridEnd->addDay();
+        }
+
+        if ($fixedRows) {
+            $days = $gridStart->diffInDays($gridEnd) + 1;
+            while ($days < 42) {
+                $gridEnd->addWeek();
+                $days += 7;
+            }
+        }
+
+        $gridEnd->endOfDay();
+
+        return [$gridStart, $gridEnd];
+    }
+
+    private function buildWeeks(Carbon $gridStart, Carbon $gridEnd, Carbon $current, $grouped): array
+    {
+        $weeks = [];
+        $day = $gridStart->copy();
+
+        while ($day->lte($gridEnd)) {
+            $days = [];
+            for ($i = 0; $i < 7; $i++) {
+                $dateKey = $day->format('Y-m-d');
+                $days[] = [
+                    'date' => $day->copy(),
+                    'day' => $day->day,
+                    'is_current_month' => $day->month === $current->month && $day->year === $current->year,
+                    'is_today' => $day->isToday(),
+                    'occurrences' => ($grouped[$dateKey] ?? collect())->values()->all(),
+                ];
+                $day->addDay();
+            }
+            $weeks[] = ['days' => $days];
+        }
+
+        return $weeks;
+    }
+
+    private function buildDayLabels(Carbon $gridStart): array
+    {
+        $labels = [];
+        $day = $gridStart->copy();
+        for ($i = 0; $i < 7; $i++) {
+            $labels[] = [
+                'label' => $day->translatedFormat('D'),
+                'full_label' => $day->translatedFormat('l'),
+            ];
+            $day->addDay();
+        }
+
+        return $labels;
+    }
+
     public function nextOccurrences(): array
     {
         $entryId = $this->params->get('entry') ?? $this->context->get('id');
