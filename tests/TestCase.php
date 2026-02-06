@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace ElSchneider\StatamicCalendar\Tests;
 
 use ElSchneider\StatamicCalendar\ServiceProvider;

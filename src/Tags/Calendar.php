@@ -145,6 +145,32 @@ class Calendar extends Tags
         ]);
     }
 
+    public function nextOccurrences(): array
+    {
+        $entryId = $this->params->get('entry') ?? $this->context->get('id');
+        $entry = is_string($entryId) ? Entry::find($entryId) : null;
+
+        if (! $entry) {
+            return [];
+        }
+
+        $contextStart = $this->getContextStart();
+
+        $from = $this->params->get('from');
+        $from = $from ? Carbon::parse((string) $from) : ($contextStart ?? Carbon::now());
+
+        $to = $this->params->has('to') ? Carbon::parse((string) $this->params->get('to')) : null;
+        $limit = $this->params->int('limit', 5);
+
+        $occurrences = $this->resolver->resolve($entry, $from, $to, $limit);
+
+        if ($contextStart && ! $this->params->bool('include_current', false)) {
+            $occurrences = $occurrences->reject(fn (Occurrence $o) => $o->start->equalTo($contextStart));
+        }
+
+        return $occurrences->map(fn (Occurrence $o) => $this->occurrenceToArray($o))->values()->all();
+    }
+
     /**
      * @return array{0: Carbon, 1: Carbon}
      */
@@ -211,32 +237,6 @@ class Calendar extends Tags
         }
 
         return $labels;
-    }
-
-    public function nextOccurrences(): array
-    {
-        $entryId = $this->params->get('entry') ?? $this->context->get('id');
-        $entry = is_string($entryId) ? Entry::find($entryId) : null;
-
-        if (! $entry) {
-            return [];
-        }
-
-        $contextStart = $this->getContextStart();
-
-        $from = $this->params->get('from');
-        $from = $from ? Carbon::parse((string) $from) : ($contextStart ?? Carbon::now());
-
-        $to = $this->params->has('to') ? Carbon::parse((string) $this->params->get('to')) : null;
-        $limit = $this->params->int('limit', 5);
-
-        $occurrences = $this->resolver->resolve($entry, $from, $to, $limit);
-
-        if ($contextStart && ! $this->params->bool('include_current', false)) {
-            $occurrences = $occurrences->reject(fn (Occurrence $o) => $o->start->equalTo($contextStart));
-        }
-
-        return $occurrences->map(fn (Occurrence $o) => $this->occurrenceToArray($o))->values()->all();
     }
 
     private function indexFromCache(Carbon $from, ?Carbon $to, ?int $limit, $tags, string $sort = 'asc'): array

@@ -70,7 +70,7 @@ class OccurrenceResolver
 
         $rruleParams = $this->buildRruleParams($row);
 
-        $rset = new RSet();
+        $rset = new RSet;
         $rset->addRRule($rruleParams);
 
         foreach (($row['exclusions'] ?? []) as $exclusion) {
