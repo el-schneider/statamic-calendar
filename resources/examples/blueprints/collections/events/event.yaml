@@ -1,0 +1,352 @@
+title: Event
+tabs:
+  main:
+    display: Main
+    sections:
+      -
+        display: General
+        fields:
+          -
+            handle: title
+            field:
+              type: text
+              required: true
+              input_type: text
+              localizable: true
+              listable: true
+              display: Title
+              validate:
+                - required
+          -
+            handle: teaser
+            field:
+              type: textarea
+              display: Teaser
+              instructions: 'Kurzbeschreibung für Listenansichten (max. 160 Zeichen). Falls leer, wird automatisch aus der Beschreibung abgeleitet.'
+              character_limit: 160
+              antlers: false
+          -
+            handle: content
+            field: common.text_basic
+            config:
+              display: Inhalt
+      -
+        display: Dates
+        fields:
+          -
+            handle: dates
+            field:
+              type: grid
+              display: Dates
+              instructions: 'Add one or more dates. Enable recurrence for repeating events.'
+              add_row: 'Add Date'
+              mode: stacked
+              fields:
+                -
+                  handle: start_date
+                  field:
+                    type: date
+                    display: 'Start Date'
+                    required: true
+                    time_enabled: false
+                    width: 50
+                    validate:
+                      - required
+                -
+                  handle: start_time
+                  field:
+                    type: text
+                    display: 'Start Time'
+                    input_type: time
+                    width: 50
+                    placeholder: '09:00'
+                -
+                  handle: end_date
+                  field:
+                    type: date
+                    display: 'End Date'
+                    time_enabled: false
+                    width: 50
+                    validate:
+                      - 'after_or_equal:{this}.start_date'
+                -
+                  handle: end_time
+                  field:
+                    type: text
+                    display: 'End Time'
+                    input_type: time
+                    width: 50
+                    placeholder: '17:00'
+                -
+                  handle: is_all_day
+                  field:
+                    type: toggle
+                    display: 'All Day Event'
+                    width: 50
+                -
+                  handle: is_recurring
+                  field:
+                    type: toggle
+                    display: 'Recurring Event'
+                    width: 50
+                -
+                  handle: frequency
+                  field:
+                    type: select
+                    display: Frequency
+                    instructions: 'How often does this event repeat?'
+                    options:
+                      DAILY: Daily
+                      WEEKLY: Weekly
+                      MONTHLY: Monthly
+                      YEARLY: Yearly
+                    default: WEEKLY
+                    width: 50
+                    if:
+                      is_recurring: 'equals true'
+                -
+                  handle: interval
+                  field:
+                    type: integer
+                    display: Interval
+                    instructions: 'Repeat every X periods (e.g., every 2 weeks)'
+                    default: 1
+                    width: 50
+                    if:
+                      is_recurring: 'equals true'
+                -
+                  handle: weekdays
+                  field:
+                    type: checkboxes
+                    display: 'Repeat on Days'
+                    instructions: 'For weekly recurrence'
+                    options:
+                      MO: Monday
+                      TU: Tuesday
+                      WE: Wednesday
+                      TH: Thursday
+                      FR: Friday
+                      SA: Saturday
+                      SU: Sunday
+                    inline: true
+                    if:
+                      is_recurring: 'equals true'
+                      frequency: 'equals WEEKLY'
+                -
+                  handle: monthly_type
+                  field:
+                    type: button_group
+                    display: 'Repeat by'
+                    options:
+                      day_of_month: 'Day of month'
+                      weekday_position: 'Weekday position'
+                    default: day_of_month
+                    width: 100
+                    if:
+                      is_recurring: 'equals true'
+                      frequency: 'equals MONTHLY'
+                -
+                  handle: monthday
+                  field:
+                    type: integer
+                    display: 'Day of Month'
+                    instructions: 'e.g., 15 for the 15th'
+                    width: 50
+                    if:
+                      is_recurring: 'equals true'
+                      frequency: 'equals MONTHLY'
+                      monthly_type: 'equals day_of_month'
+                -
+                  handle: weekday_ordinal
+                  field:
+                    type: select
+                    display: Which
+                    options:
+                      '1': First
+                      '2': Second
+                      '3': Third
+                      '4': Fourth
+                      '-1': Last
+                    default: '1'
+                    width: 50
+                    if:
+                      is_recurring: 'equals true'
+                      frequency: 'equals MONTHLY'
+                      monthly_type: 'equals weekday_position'
+                -
+                  handle: weekday
+                  field:
+                    type: select
+                    display: 'Day of Week'
+                    options:
+                      MO: Monday
+                      TU: Tuesday
+                      WE: Wednesday
+                      TH: Thursday
+                      FR: Friday
+                      SA: Saturday
+                      SU: Sunday
+                    width: 50
+                    if:
+                      is_recurring: 'equals true'
+                      frequency: 'equals MONTHLY'
+                      monthly_type: 'equals weekday_position'
+                -
+                  handle: recurrence_end
+                  field:
+                    type: button_group
+                    display: 'Recurrence Ends'
+                    options:
+                      never: Never
+                      count: 'After X occurrences'
+                      until: 'On date'
+                    default: never
+                    width: 100
+                    if:
+                      is_recurring: 'equals true'
+                -
+                  handle: count
+                  field:
+                    type: integer
+                    display: 'Number of Occurrences'
+                    width: 50
+                    if:
+                      is_recurring: 'equals true'
+                      recurrence_end: 'equals count'
+                -
+                  handle: until
+                  field:
+                    type: date
+                    display: 'Repeat Until'
+                    time_enabled: false
+                    width: 50
+                    validate:
+                      - 'after_or_equal:{this}.start_date'
+                    if:
+                      is_recurring: 'equals true'
+                      recurrence_end: 'equals until'
+                -
+                  handle: exclusions
+                  field:
+                    type: grid
+                    display: Exclusions
+                    instructions: 'Dates to exclude from the recurrence (EXDATE)'
+                    add_row: 'Add Exclusion'
+                    mode: table
+                    if:
+                      is_recurring: 'equals true'
+                    fields:
+                      -
+                        handle: date
+                        field:
+                          type: date
+                          display: Date
+                          time_enabled: false
+                          required: true
+                          width: 66
+                          validate:
+                            - required
+                      -
+                        handle: time
+                        field:
+                          type: text
+                          display: Time
+                          instructions: 'Optional, for time-specific exclusions'
+                          input_type: time
+                          width: 33
+                -
+                  handle: additions
+                  field:
+                    type: grid
+                    display: 'Additional Dates'
+                    instructions: 'One-off dates outside the recurrence pattern (RDATE)'
+                    add_row: 'Add Date'
+                    mode: table
+                    if:
+                      is_recurring: 'equals true'
+                    fields:
+                      -
+                        handle: date
+                        field:
+                          type: date
+                          display: Date
+                          time_enabled: false
+                          required: true
+                          width: 33
+                          validate:
+                            - required
+                      -
+                        handle: start_time
+                        field:
+                          type: text
+                          display: 'Start Time'
+                          input_type: time
+                          width: 33
+                      -
+                        handle: end_time
+                        field:
+                          type: text
+                          display: 'End Time'
+                          input_type: time
+                          width: 33
+  seo:
+    display: SEO
+    sections:
+      -
+        display: Basic
+        instructions: 'Basic SEO settings.'
+        fields:
+          -
+            import: 'statamic-peak-seo::seo_basic'
+      -
+        display: Advanced
+        instructions: 'Advanced SEO settings.'
+        fields:
+          -
+            import: 'statamic-peak-seo::seo_advanced'
+      -
+        display: 'Open Graph'
+        instructions: 'Open Graph meta tags for social sharing.'
+        fields:
+          -
+            import: 'statamic-peak-seo::seo_open_graph'
+      -
+        display: Sitemap
+        instructions: 'Sitemap configuration.'
+        fields:
+          -
+            import: 'statamic-peak-seo::seo_sitemap'
+  sidebar:
+    display: Sidebar
+    sections:
+      -
+        display: Meta
+        fields:
+          -
+            handle: slug
+            field:
+              type: slug
+              localizable: true
+              generate: true
+              listable: hidden
+              display: Slug
+              validate:
+                - required
+          -
+            handle: member
+            field:
+              type: entries
+              collections:
+                - members
+              max_items: 1
+              display: Mitgliedsorganisation
+              instructions: 'Die Organisation, die dieses Event veranstaltet.'
+              listable: true
+          -
+            handle: event_tags
+            field:
+              type: terms
+              taxonomies:
+                - event_tags
+              display: Tags
+              mode: select

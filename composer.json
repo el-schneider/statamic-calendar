@@ -1,0 +1,38 @@
+{
+    "name": "el-schneider/statamic-calendar",
+    "autoload": {
+        "psr-4": {
+            "ElSchneider\\StatamicCalendar\\": "src"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "ElSchneider\\StatamicCalendar\\Tests\\": "tests"
+        }
+    },
+    "require": {
+        "rlanvin/php-rrule": "^2.6",
+        "statamic/cms": "^5.0 || ^6.0"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^9.0"
+    },
+    "config": {
+        "allow-plugins": {
+            "pixelfear/composer-dist-plugin": true
+        }
+    },
+    "extra": {
+        "statamic": {
+            "name": "Statamic Calendar",
+            "description": "Statamic Calendar addon"
+        },
+        "laravel": {
+            "providers": [
+                "ElSchneider\\StatamicCalendar\\ServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}
