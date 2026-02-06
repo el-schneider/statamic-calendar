@@ -3,22 +3,18 @@ tabs:
   main:
     display: Main
     sections:
-      -
-        display: General
+      - display: General
         fields:
-          -
-            handle: title
+          - handle: title
             field:
               type: text
               required: true
               display: Title
               validate:
                 - required
-      -
-        display: Dates
+      - display: Dates
         fields:
-          -
-            handle: dates
+          - handle: dates
             field:
               type: grid
               display: Dates
@@ -26,8 +22,7 @@ tabs:
               add_row: 'Add Date'
               mode: stacked
               fields:
-                -
-                  handle: start_date
+                - handle: start_date
                   field:
                     type: date
                     display: 'Start Date'
@@ -36,16 +31,14 @@ tabs:
                     width: 50
                     validate:
                       - required
-                -
-                  handle: start_time
+                - handle: start_time
                   field:
                     type: text
                     display: 'Start Time'
                     input_type: time
                     width: 50
                     placeholder: '09:00'
-                -
-                  handle: end_date
+                - handle: end_date
                   field:
                     type: date
                     display: 'End Date'
@@ -53,28 +46,24 @@ tabs:
                     width: 50
                     validate:
                       - 'after_or_equal:{this}.start_date'
-                -
-                  handle: end_time
+                - handle: end_time
                   field:
                     type: text
                     display: 'End Time'
                     input_type: time
                     width: 50
                     placeholder: '17:00'
-                -
-                  handle: is_all_day
+                - handle: is_all_day
                   field:
                     type: toggle
                     display: 'All Day Event'
                     width: 50
-                -
-                  handle: is_recurring
+                - handle: is_recurring
                   field:
                     type: toggle
                     display: 'Recurring Event'
                     width: 50
-                -
-                  handle: frequency
+                - handle: frequency
                   field:
                     type: select
                     display: Frequency
@@ -87,8 +76,7 @@ tabs:
                     width: 50
                     if:
                       is_recurring: 'equals true'
-                -
-                  handle: interval
+                - handle: interval
                   field:
                     type: integer
                     display: Interval
@@ -97,8 +85,7 @@ tabs:
                     width: 50
                     if:
                       is_recurring: 'equals true'
-                -
-                  handle: weekdays
+                - handle: weekdays
                   field:
                     type: checkboxes
                     display: 'Repeat on Days'
@@ -114,8 +101,7 @@ tabs:
                     if:
                       is_recurring: 'equals true'
                       frequency: 'equals WEEKLY'
-                -
-                  handle: monthly_type
+                - handle: monthly_type
                   field:
                     type: button_group
                     display: 'Repeat by'
@@ -126,8 +112,7 @@ tabs:
                     if:
                       is_recurring: 'equals true'
                       frequency: 'equals MONTHLY'
-                -
-                  handle: monthday
+                - handle: monthday
                   field:
                     type: integer
                     display: 'Day of Month'
@@ -136,8 +121,7 @@ tabs:
                       is_recurring: 'equals true'
                       frequency: 'equals MONTHLY'
                       monthly_type: 'equals day_of_month'
-                -
-                  handle: weekday_ordinal
+                - handle: weekday_ordinal
                   field:
                     type: select
                     display: Which
@@ -153,8 +137,7 @@ tabs:
                       is_recurring: 'equals true'
                       frequency: 'equals MONTHLY'
                       monthly_type: 'equals weekday_position'
-                -
-                  handle: weekday
+                - handle: weekday
                   field:
                     type: select
                     display: 'Day of Week'
@@ -171,8 +154,7 @@ tabs:
                       is_recurring: 'equals true'
                       frequency: 'equals MONTHLY'
                       monthly_type: 'equals weekday_position'
-                -
-                  handle: recurrence_end
+                - handle: recurrence_end
                   field:
                     type: button_group
                     display: 'Recurrence Ends'
@@ -183,8 +165,7 @@ tabs:
                     default: never
                     if:
                       is_recurring: 'equals true'
-                -
-                  handle: count
+                - handle: count
                   field:
                     type: integer
                     display: 'Number of Occurrences'
@@ -192,8 +173,7 @@ tabs:
                     if:
                       is_recurring: 'equals true'
                       recurrence_end: 'equals count'
-                -
-                  handle: until
+                - handle: until
                   field:
                     type: date
                     display: 'Repeat Until'
@@ -204,8 +184,7 @@ tabs:
                     if:
                       is_recurring: 'equals true'
                       recurrence_end: 'equals until'
-                -
-                  handle: exclusions
+                - handle: exclusions
                   field:
                     type: grid
                     display: Exclusions
@@ -215,8 +194,7 @@ tabs:
                     if:
                       is_recurring: 'equals true'
                     fields:
-                      -
-                        handle: date
+                      - handle: date
                         field:
                           type: date
                           display: Date
@@ -225,15 +203,13 @@ tabs:
                           width: 66
                           validate:
                             - required
-                      -
-                        handle: time
+                      - handle: time
                         field:
                           type: text
                           display: Time
                           input_type: time
                           width: 33
-                -
-                  handle: additions
+                - handle: additions
                   field:
                     type: grid
                     display: 'Additional Dates'
@@ -243,8 +219,7 @@ tabs:
                     if:
                       is_recurring: 'equals true'
                     fields:
-                      -
-                        handle: date
+                      - handle: date
                         field:
                           type: date
                           display: Date
@@ -253,15 +228,13 @@ tabs:
                           width: 33
                           validate:
                             - required
-                      -
-                        handle: start_time
+                      - handle: start_time
                         field:
                           type: text
                           display: 'Start Time'
                           input_type: time
                           width: 33
-                      -
-                        handle: end_time
+                      - handle: end_time
                         field:
                           type: text
                           display: 'End Time'
@@ -270,11 +243,9 @@ tabs:
   sidebar:
     display: Sidebar
     sections:
-      -
-        display: Meta
+      - display: Meta
         fields:
-          -
-            handle: slug
+          - handle: slug
             field:
               type: slug
               localizable: true

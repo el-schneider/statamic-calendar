@@ -71,13 +71,13 @@ Then create `resources/views/events/index.antlers.html`:
 <h1>Upcoming Events</h1>
 
 {{ calendar from="now" limit="20" }}
-    <a href="{{ url }}">
-        <h2>{{ title }}</h2>
-        <p>{{ start format="l, M j, Y" }}</p>
-        {{ if is_recurring }}
-            <p>{{ recurrence_description }}</p>
-        {{ /if }}
-    </a>
+  <a href="{{ url }}">
+    <h2>{{ title }}</h2>
+    <p>{{ start format="l, M j, Y" }}</p>
+    {{ if is_recurring }}
+      <p>{{ recurrence_description }}</p>
+    {{ /if }}
+  </a>
 {{ /calendar }}
 ```
 
@@ -89,19 +89,21 @@ Set the collection template to `events/show`, then create `resources/views/event
 <h1>{{ title }}</h1>
 
 {{ calendar:current_occurrence }}
-    <p>{{ start format="l, F j, Y" }}</p>
-    {{ if !is_all_day }}
-        <p>{{ start format="g:i A" }}{{ if end }} – {{ end format="g:i A" }}{{ /if }}</p>
-    {{ else }}
-        <p>All day</p>
-    {{ /if }}
-    {{ if is_recurring }}
-        <p>Repeats: {{ recurrence_description }}</p>
-    {{ /if }}
+  <p>{{ start format="l, F j, Y" }}</p>
+  {{ if !is_all_day }}
+    <p>
+      {{ start format="g:i A" }}
+      {{ if end }}– {{ end format="g:i A" }}{{ /if }}
+    </p>
+  {{ else }}
+    <p>All day</p>
+  {{ /if }}
+  {{ if is_recurring }}
+    <p>Repeats: {{ recurrence_description }}</p>
+  {{ /if }}
 {{ /calendar:current_occurrence }}
-
 {{ calendar:next_occurrences :entry="id" limit="5" }}
-    <a href="{{ url }}">{{ start format="M j, Y" }}</a>
+  <a href="{{ url }}">{{ start format="M j, Y" }}</a>
 {{ /calendar:next_occurrences }}
 ```
 
@@ -113,25 +115,25 @@ The `{{ calendar:current_occurrence }}` tag reads the `?date=` query parameter a
 
 Lists occurrences from the cache (or resolves them live for non-default collections).
 
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `from` | Start date | `now` |
-| `to` | End date | — |
-| `limit` | Max occurrences | — |
-| `collection` | Collection handle | config value |
-| `tags` | Filter by taxonomy terms | — |
+| Parameter    | Description              | Default      |
+| ------------ | ------------------------ | ------------ |
+| `from`       | Start date               | `now`        |
+| `to`         | End date                 | —            |
+| `limit`      | Max occurrences          | —            |
+| `collection` | Collection handle        | config value |
+| `tags`       | Filter by taxonomy terms | —            |
 
 ### `{{ calendar:month }}`
 
 Renders a month grid with weeks, days, and occurrences. Navigation via query params, fully server-rendered. See the example index template for usage.
 
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `param` | Query string parameter name (allows multiple calendars per page) | `month` |
-| `week_starts_on` | Day of week (`0` = Sunday, `1` = Monday) | `1` |
-| `fixed_rows` | Always render 6 rows for consistent grid height | `false` |
-| `collection` | Collection handle | config value |
-| `tags` | Filter by taxonomy terms | — |
+| Parameter        | Description                                                      | Default      |
+| ---------------- | ---------------------------------------------------------------- | ------------ |
+| `param`          | Query string parameter name (allows multiple calendars per page) | `month`      |
+| `week_starts_on` | Day of week (`0` = Sunday, `1` = Monday)                         | `1`          |
+| `fixed_rows`     | Always render 6 rows for consistent grid height                  | `false`      |
+| `collection`     | Collection handle                                                | config value |
+| `tags`           | Filter by taxonomy terms                                         | —            |
 
 Variables available inside the tag pair: `month_label`, `year`, `month`, `prev_url`, `next_url`, `today`, `day_labels` (loop with `label`, `full_label`), and `weeks` → `days` → `date`, `day`, `is_current_month`, `is_today`, `occurrences`.
 
@@ -150,35 +152,35 @@ Resolves the current occurrence for the entry in context, based on the `?date=` 
 
 Lists upcoming occurrences for a specific entry.
 
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `entry` | Entry ID | current context `id` |
-| `from` | Start date | `now` |
-| `to` | End date | — |
-| `limit` | Max occurrences | `5` |
+| Parameter | Description     | Default              |
+| --------- | --------------- | -------------------- |
+| `entry`   | Entry ID        | current context `id` |
+| `from`    | Start date      | `now`                |
+| `to`      | End date        | —                    |
+| `limit`   | Max occurrences | `5`                  |
 
 ### `{{ calendar:for_organizer }}`
 
 Lists upcoming occurrences for an organizer (from cache).
 
-| Parameter | Description | Default |
-|-----------|-------------|---------|
+| Parameter   | Description        | Default              |
+| ----------- | ------------------ | -------------------- |
 | `organizer` | Organizer entry ID | current context `id` |
-| `limit` | Max occurrences | `5` |
+| `limit`     | Max occurrences    | `5`                  |
 
 ## Configuration
 
 Key options in `config/statamic-calendar.php`:
 
-| Key | Description | Default |
-|-----|-------------|---------|
-| `collection` | Source collection handle | `events` |
-| `fields.dates` | Grid field handle | `dates` |
-| `url.strategy` | `query_string` or `date_segments` | `query_string` |
-| `url.query_string.param` | Query parameter name | `date` |
-| `url.date_segments.prefix` | URL prefix for date segments | `calendar` |
-| `cache.key` | Cache store key | `statamic_calendar.occurrences` |
-| `cache.days_ahead` | Recurrence expansion window | `365` |
+| Key                        | Description                       | Default                         |
+| -------------------------- | --------------------------------- | ------------------------------- |
+| `collection`               | Source collection handle          | `events`                        |
+| `fields.dates`             | Grid field handle                 | `dates`                         |
+| `url.strategy`             | `query_string` or `date_segments` | `query_string`                  |
+| `url.query_string.param`   | Query parameter name              | `date`                          |
+| `url.date_segments.prefix` | URL prefix for date segments      | `calendar`                      |
+| `cache.key`                | Cache store key                   | `statamic_calendar.occurrences` |
+| `cache.days_ahead`         | Recurrence expansion window       | `365`                           |
 
 ## Cache
 

@@ -2,25 +2,33 @@
 <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
 
 <div class="w-full max-w-6xl space-y-16">
-
     {{# ── Month Grids (variable + fixed, side by side) ──────── #}}
-
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
-
         {{# ── Variable-height ──────────────────────────────────── #}}
-
         <section>
             <h2 class="text-3xl font-bold mb-8">Calendar</h2>
 
             {{ calendar:month }}
                 <div>
                     <div class="flex items-center justify-between mb-6">
-                        <a href="{{ prev_url }}" class="text-sm font-medium text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200">← Prev</a>
+                        <a
+                            href="{{ prev_url }}"
+                            class="text-sm font-medium text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200"
+                        >
+                            ← Prev
+                        </a>
                         <h3 class="text-xl font-bold">{{ month_label }}</h3>
-                        <a href="{{ next_url }}" class="text-sm font-medium text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200">Next →</a>
+                        <a
+                            href="{{ next_url }}"
+                            class="text-sm font-medium text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200"
+                        >
+                            Next →
+                        </a>
                     </div>
 
-                    <div class="grid grid-cols-7 text-center text-xs font-medium text-zinc-400 dark:text-zinc-500 uppercase mb-2">
+                    <div
+                        class="grid grid-cols-7 text-center text-xs font-medium text-zinc-400 dark:text-zinc-500 uppercase mb-2"
+                    >
                         {{ day_labels }}
                             <div>{{ label }}</div>
                         {{ /day_labels }}
@@ -29,17 +37,28 @@
                     {{ weeks }}
                         <div class="grid grid-cols-7 border-t border-zinc-200 dark:border-zinc-800">
                             {{ days }}
-                                <div class="min-h-20 border-r border-b border-zinc-200 dark:border-zinc-800 p-1 last:border-r-0 transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800/50 {{ unless is_current_month }}bg-zinc-50 dark:bg-zinc-900/50{{ /unless }}">
-                                    <span class="text-xs font-medium {{ is_today ?= 'inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-600 text-white' }} {{ unless is_current_month }}text-zinc-300 dark:text-zinc-600{{ /unless }}">
+                                <div
+                                    class="min-h-20 border-r border-b border-zinc-200 dark:border-zinc-800 p-1 last:border-r-0 transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800/50 {{ unless is_current_month }}bg-zinc-50 dark:bg-zinc-900/50{{ /unless }}"
+                                >
+                                    <span
+                                        class="text-xs font-medium {{ is_today ?= 'inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-600 text-white' }} {{ unless is_current_month }}text-zinc-300 dark:text-zinc-600{{ /unless }}"
+                                    >
                                         {{ day }}
                                     </span>
 
                                     {{ occurrences }}
-                                        <a href="{{ url }}" class="block mt-0.5 text-[10px] leading-tight truncate rounded px-1 py-0.5 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/50" title="{{ title }}">
+                                        <a
+                                            href="{{ url }}"
+                                            class="block mt-0.5 text-[10px] leading-tight truncate rounded px-1 py-0.5 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/50"
+                                            title="{{ title }}"
+                                        >
                                             {{ if is_all_day }}
                                                 {{ title }}
                                             {{ else }}
-                                                <span class="text-blue-400 dark:text-blue-500">{{ start format="g:ia" }}</span> {{ title }}
+                                                <span class="text-blue-400 dark:text-blue-500">
+                                                    {{ start format="g:ia" }}
+                                                </span>
+                                                {{ title }}
                                             {{ /if }}
                                         </a>
                                     {{ /occurrences }}
@@ -52,19 +71,30 @@
         </section>
 
         {{# ── Fixed-height (always 6 rows) ─────────────────────── #}}
-
         <section>
             <h2 class="text-3xl font-bold mb-8">Calendar (fixed grid)</h2>
 
             {{ calendar:month param="fixed" fixed_rows="true" }}
                 <div>
                     <div class="flex items-center justify-between mb-6">
-                        <a href="{{ prev_url }}" class="text-sm font-medium text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200">← Prev</a>
+                        <a
+                            href="{{ prev_url }}"
+                            class="text-sm font-medium text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200"
+                        >
+                            ← Prev
+                        </a>
                         <h3 class="text-xl font-bold">{{ month_label }}</h3>
-                        <a href="{{ next_url }}" class="text-sm font-medium text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200">Next →</a>
+                        <a
+                            href="{{ next_url }}"
+                            class="text-sm font-medium text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200"
+                        >
+                            Next →
+                        </a>
                     </div>
 
-                    <div class="grid grid-cols-7 text-center text-xs font-medium text-zinc-400 dark:text-zinc-500 uppercase mb-2">
+                    <div
+                        class="grid grid-cols-7 text-center text-xs font-medium text-zinc-400 dark:text-zinc-500 uppercase mb-2"
+                    >
                         {{ day_labels }}
                             <div>{{ label }}</div>
                         {{ /day_labels }}
@@ -73,17 +103,28 @@
                     {{ weeks }}
                         <div class="grid grid-cols-7 border-t border-zinc-200 dark:border-zinc-800">
                             {{ days }}
-                                <div class="h-20 border-r border-b border-zinc-200 dark:border-zinc-800 p-1 last:border-r-0 overflow-hidden transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800/50 {{ unless is_current_month }}bg-zinc-50 dark:bg-zinc-900/50{{ /unless }}">
-                                    <span class="text-xs font-medium {{ is_today ?= 'inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-600 text-white' }} {{ unless is_current_month }}text-zinc-300 dark:text-zinc-600{{ /unless }}">
+                                <div
+                                    class="h-20 border-r border-b border-zinc-200 dark:border-zinc-800 p-1 last:border-r-0 overflow-hidden transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800/50 {{ unless is_current_month }}bg-zinc-50 dark:bg-zinc-900/50{{ /unless }}"
+                                >
+                                    <span
+                                        class="text-xs font-medium {{ is_today ?= 'inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-600 text-white' }} {{ unless is_current_month }}text-zinc-300 dark:text-zinc-600{{ /unless }}"
+                                    >
                                         {{ day }}
                                     </span>
 
                                     {{ occurrences }}
-                                        <a href="{{ url }}" class="block mt-0.5 text-[10px] leading-tight truncate rounded px-1 py-0.5 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/50" title="{{ title }}">
+                                        <a
+                                            href="{{ url }}"
+                                            class="block mt-0.5 text-[10px] leading-tight truncate rounded px-1 py-0.5 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/50"
+                                            title="{{ title }}"
+                                        >
                                             {{ if is_all_day }}
                                                 {{ title }}
                                             {{ else }}
-                                                <span class="text-blue-400 dark:text-blue-500">{{ start format="g:ia" }}</span> {{ title }}
+                                                <span class="text-blue-400 dark:text-blue-500">
+                                                    {{ start format="g:ia" }}
+                                                </span>
+                                                {{ title }}
                                             {{ /if }}
                                         </a>
                                     {{ /occurrences }}
@@ -94,18 +135,19 @@
                 </div>
             {{ /calendar:month }}
         </section>
-
     </div>
 
     {{# ── List + Archive ─────────────────────────────────────── #}}
-
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
         <div>
             <h1 class="text-3xl font-bold mb-8">Upcoming Events</h1>
 
             <div class="space-y-4">
                 {{ calendar from="now" limit="10" }}
-                    <a href="{{ url }}" class="block p-4 bg-white dark:bg-zinc-800 rounded shadow hover:shadow-md hover:bg-zinc-50 dark:hover:bg-zinc-700/50 transition-all">
+                    <a
+                        href="{{ url }}"
+                        class="block p-4 bg-white dark:bg-zinc-800 rounded shadow hover:shadow-md hover:bg-zinc-50 dark:hover:bg-zinc-700/50 transition-all"
+                    >
                         <h2 class="text-lg font-semibold">{{ title }}</h2>
                         <p class="text-sm text-zinc-500 dark:text-zinc-400">
                             {{ start format="l, M j, Y" }}
@@ -125,7 +167,9 @@
 
             <table class="w-full text-sm text-left">
                 <thead>
-                    <tr class="text-xs text-zinc-400 dark:text-zinc-500 uppercase border-b border-zinc-200 dark:border-zinc-700">
+                    <tr
+                        class="text-xs text-zinc-400 dark:text-zinc-500 uppercase border-b border-zinc-200 dark:border-zinc-700"
+                    >
                         <th class="py-2 pr-4 font-medium">Date</th>
                         <th class="py-2 pr-4 font-medium">Event</th>
                         <th class="py-2 font-medium">Time</th>
@@ -133,13 +177,24 @@
                 </thead>
                 <tbody>
                     {{ calendar from="2020-01-01" to="now" sort="desc" limit="30" }}
-                        <tr class="border-b border-zinc-100 dark:border-zinc-800 transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
-                            <td class="py-2 pr-4 text-zinc-400 dark:text-zinc-500 whitespace-nowrap">{{ start format="Y/m/d" }}</td>
+                        <tr
+                            class="border-b border-zinc-100 dark:border-zinc-800 transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
+                        >
+                            <td class="py-2 pr-4 text-zinc-400 dark:text-zinc-500 whitespace-nowrap">
+                                {{ start format="Y/m/d" }}
+                            </td>
                             <td class="py-2 pr-4">
                                 <a href="{{ url }}" class="hover:underline">{{ title }}</a>
-                                {{ if is_recurring }}<span class="text-zinc-400 dark:text-zinc-500 ml-1">↻</span>{{ /if }}
+                                {{ if is_recurring }}
+                                    <span class="text-zinc-400 dark:text-zinc-500 ml-1">↻</span>
+                                {{ /if }}
                             </td>
-                            <td class="py-2 text-zinc-400 dark:text-zinc-500 whitespace-nowrap">{{ if is_all_day }}All day{{ else }}{{ start format="g:i A" }}{{ /if }}</td>
+                            <td class="py-2 text-zinc-400 dark:text-zinc-500 whitespace-nowrap">
+                                {{ if is_all_day }}All day
+                                {{ else }}
+                                    {{ start format="g:i A" }}
+                                {{ /if }}
+                            </td>
                         </tr>
                     {{ /calendar }}
                 </tbody>
