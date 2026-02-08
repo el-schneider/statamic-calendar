@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace ElSchneider\StatamicCalendar;
 
 use ElSchneider\StatamicCalendar\Console\Commands\RebuildOccurrenceCacheCommand;
+use ElSchneider\StatamicCalendar\Http\Controllers\ApiOccurrenceController;
 use ElSchneider\StatamicCalendar\Http\Controllers\IcsController;
 use ElSchneider\StatamicCalendar\Listeners\RebuildOccurrenceCacheOnEntryChange;
 use ElSchneider\StatamicCalendar\Occurrences\OccurrenceCache;
@@ -42,6 +43,7 @@ class ServiceProvider extends AddonServiceProvider
         $this->app['view']->addLocation(__DIR__.'/../resources/views');
 
         $this->registerRoutes();
+        $this->registerApiRoutes();
 
         $this->publishes([
             __DIR__.'/../config/statamic-calendar.php' => config_path('statamic-calendar.php'),
@@ -65,6 +67,20 @@ class ServiceProvider extends AddonServiceProvider
         }
 
         $this->registerIcsRoutes();
+    }
+
+    protected function registerApiRoutes(): void
+    {
+        if (! config('statamic-calendar.api.enabled', false)) {
+            return;
+        }
+
+        $route = config('statamic-calendar.api.route', 'api/calendar/occurrences');
+        $middleware = config('statamic-calendar.api.middleware', 'api');
+
+        Route::middleware($middleware)
+            ->get($route, [ApiOccurrenceController::class, 'index'])
+            ->name('statamic-calendar.api.occurrences');
     }
 
     protected function registerIcsRoutes(): void

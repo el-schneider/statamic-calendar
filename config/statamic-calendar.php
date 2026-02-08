@@ -107,6 +107,27 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | REST API
+    |--------------------------------------------------------------------------
+    |
+    | Expose a JSON API for occurrences, designed for JS-based calendar
+    | components that build their view client-side. Disabled by default.
+    |
+    | The route is registered under the configured prefix using Laravel's
+    | "api" middleware group, so CORS is handled by config/cors.php.
+    |
+    | GET /{route}?from=2026-01-01&to=2026-01-31&limit=50&sort=asc&tags=music,art&organizer={id}
+    |
+    */
+
+    'api' => [
+        'enabled' => env('STATAMIC_CALENDAR_API_ENABLED', false),
+        'route' => env('STATAMIC_CALENDAR_API_ROUTE', 'api/calendar/occurrences'),
+        'middleware' => env('STATAMIC_CALENDAR_API_MIDDLEWARE', 'api'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Cache
     |--------------------------------------------------------------------------
     |

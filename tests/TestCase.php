@@ -86,5 +86,7 @@ abstract class TestCase extends OrchestraTestCase
         $app['config']->set('statamic.stache.stores.collection-trees.directory', $directory.'/../tests/__fixtures__/content/structures/collections');
         $app['config']->set('statamic.stache.stores.form-submissions.directory', $directory.'/../tests/__fixtures__/content/submissions');
         $app['config']->set('statamic.stache.stores.users.directory', $directory.'/../tests/__fixtures__/users');
+
+        $app['config']->set('statamic-calendar.api.enabled', true);
     }
 }
