@@ -8,6 +8,7 @@ Recurring events and cached occurrences for Statamic.
 - Materialize occurrences into Laravel cache for fast listings
 - Antlers tags for listing, current occurrence, next occurrences, and month grid
 - Month calendar view — server-rendered, navigable via query params, no JS required
+- iCalendar (.ics) feed for calendar app subscriptions + per-event "Add to calendar" downloads
 - Two URL strategies: query string (default, Statamic-native) or date segments
 - Example templates for index (list, archive, calendar grid) and show pages
 
@@ -52,6 +53,43 @@ For SEO-friendly date-based URLs like `/calendar/2025/03/15/my-event`. Enable in
 ```
 
 The addon registers a route at `/{prefix}/{year}/{month}/{day}/{slug}`.
+
+## iCalendar (.ics) Export
+
+The addon exposes an .ics feed that calendar apps (Apple Calendar, Google Calendar, Outlook) can subscribe to. Enabled by default.
+
+### Subscribable Feed
+
+`GET /calendar.ics` — returns all cached occurrences as a standard iCalendar feed. Calendar apps can subscribe to this URL and will receive updates as events change.
+
+### Single-Event Download
+
+`GET /calendar.ics/{occurrenceId}` — returns a single occurrence as a downloadable .ics file. Use this for "Add to calendar" buttons. The response includes a `Content-Disposition: attachment` header.
+
+### Configuration
+
+```php
+// config/statamic-calendar.php
+'ics' => [
+    'enabled' => true,           // set to false to disable .ics routes
+    'feed_url' => '/calendar.ics',
+    'calendar_name' => env('APP_NAME', 'Calendar'),
+],
+```
+
+### Template Usage
+
+```antlers
+{{-- Subscribe link --}}
+<a href="{{ calendar:ics_url }}">Subscribe to calendar</a>
+
+{{-- Per-event download inside a calendar loop --}}
+{{ calendar from="now" limit="10" }}
+  <a href="{{ calendar:ics_download_url :occurrence_id="id" }}">
+    Add to calendar
+  </a>
+{{ /calendar }}
+```
 
 ## Setting Up Templates
 
@@ -159,6 +197,29 @@ Lists upcoming occurrences for a specific entry.
 | `to`      | End date        | —                    |
 | `limit`   | Max occurrences | `5`                  |
 
+### `{{ calendar:ics_url }}`
+
+Returns the URL to the .ics calendar feed. Use it to offer a "Subscribe" link:
+
+```antlers
+<a href="{{ calendar:ics_url }}">Subscribe to calendar</a>
+```
+
+### `{{ calendar:ics_download_url }}`
+
+Returns the .ics download URL for a single occurrence. Use inside any `{{ calendar }}` loop to offer an "Add to calendar" button:
+
+```antlers
+{{ calendar from="now" limit="10" }}
+  <h2>{{ title }}</h2>
+  <a href="{{ calendar:ics_download_url :occurrence_id="id" }}">Add to calendar</a>
+{{ /calendar }}
+```
+
+| Parameter      | Description  | Default              |
+| -------------- | ------------ | -------------------- |
+| `occurrence_id` | Occurrence ID (`{entry_id}-{Y-m-d-His}`) | current context `id` |
+
 ### `{{ calendar:for_organizer }}`
 
 Lists upcoming occurrences for an organizer (from cache).
@@ -179,6 +240,9 @@ Key options in `config/statamic-calendar.php`:
 | `url.strategy`             | `query_string` or `date_segments` | `query_string`                  |
 | `url.query_string.param`   | Query parameter name              | `date`                          |
 | `url.date_segments.prefix` | URL prefix for date segments      | `calendar`                      |
+| `ics.enabled`              | Enable .ics feed routes           | `true`                          |
+| `ics.feed_url`             | Feed URL path                     | `/calendar.ics`                 |
+| `ics.calendar_name`        | Calendar name in .ics output      | `APP_NAME`                      |
 | `cache.key`                | Cache store key                   | `statamic_calendar.occurrences` |
 | `cache.days_ahead`         | Recurrence expansion window       | `365`                           |
 
