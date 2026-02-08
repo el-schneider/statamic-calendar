@@ -1,3 +1,6 @@
+{{# Tailwind CDN — remove this when using your own build pipeline #}}
+<script src="https://cdn.tailwindcss.com?plugins=typography"></script>
+
 <div class="w-full max-w-2xl">
     <a href="/calendar" class="text-sm text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 mb-4 inline-block">
         ← Back to calendar
@@ -35,6 +38,23 @@
             📅 Add to calendar
         </a>
     {{ /calendar:current_occurrence }}
+    {{# Organizer — entries field, max 1 #}}
+    {{ organizer }}
+        <div class="mb-8">
+            <h2 class="text-lg font-semibold mb-2">Organizer</h2>
+            <p class="text-sm">{{ title }}</p>
+            {{ if email }}
+                <a href="mailto:{{ email }}" class="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+                    {{ email }}
+                </a>
+            {{ /if }}
+            {{ if website }}
+                <a href="{{ website }}" target="_blank" rel="noopener" class="block text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+                    {{ website }}
+                </a>
+            {{ /if }}
+        </div>
+    {{ /organizer }}
 
     {{# Upcoming occurrences #}}
     <h2 class="text-lg font-semibold mb-3">Upcoming Dates</h2>
