@@ -26,6 +26,16 @@
             {{ /if }}
         </dl>
     {{ /calendar:current_occurrence }}
+    {{# Add to calendar #}}
+    {{ calendar:current_occurrence }}
+        <a
+            href="{{ calendar:ics_download_url :occurrence_id="occurrence_id" }}"
+            class="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 mb-6"
+        >
+            📅 Add to calendar
+        </a>
+    {{ /calendar:current_occurrence }}
+
     {{# Upcoming occurrences #}}
     <h2 class="text-lg font-semibold mb-3">Upcoming Dates</h2>
     <ul class="space-y-1 text-sm">

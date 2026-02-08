@@ -70,6 +70,7 @@ class Calendar extends Tags
         }
 
         return $this->parse([
+            'occurrence_id' => $entry->id().'-'.$occurrence->start->format('Y-m-d-His'),
             'start' => $occurrence->start,
             'end' => $occurrence->end,
             'is_all_day' => $occurrence->isAllDay,
