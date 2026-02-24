@@ -1,5 +1,29 @@
 {
     "name": "el-schneider/statamic-calendar",
+    "description": "Recurring events and cached occurrences for Statamic — with RRULE support, Antlers tags, month grid, REST API, and iCal export.",
+    "license": "MIT",
+    "keywords": [
+        "statamic",
+        "statamic-addon",
+        "calendar",
+        "events",
+        "recurring-events",
+        "rrule",
+        "laravel",
+        "ical",
+        "ics"
+    ],
+    "homepage": "https://github.com/el-schneider/statamic-calendar",
+    "support": {
+        "issues": "https://github.com/el-schneider/statamic-calendar/issues",
+        "source": "https://github.com/el-schneider/statamic-calendar"
+    },
+    "authors": [
+        {
+            "name": "Jonas List",
+            "homepage": "https://github.com/el-schneider"
+        }
+    ],
     "autoload": {
         "psr-4": {
             "ElSchneider\\StatamicCalendar\\": "src"
@@ -29,7 +53,7 @@
     "extra": {
         "statamic": {
             "name": "Statamic Calendar",
-            "description": "Statamic Calendar addon"
+            "description": "Recurring events with RRULE support, cached occurrences, month grid, REST API, and iCal export."
         },
         "laravel": {
             "providers": [

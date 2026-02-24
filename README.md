@@ -2,7 +2,7 @@
 
 # Statamic Calendar
 
-Recurring events and cached occurrences for Statamic.
+Recurring events and cached occurrences for Statamic. Works with Statamic 5 and 6.
 
 ## Features
 
@@ -15,6 +15,12 @@ Recurring events and cached occurrences for Statamic.
 - Two URL strategies: query string (default, Statamic-native) or date segments
 - Example templates for index (list, archive, calendar grid) and show pages
 
+## Requirements
+
+- PHP 8.3+
+- Statamic 5 or 6
+- Laravel 11+
+
 ## Installation
 
 ```bash
@@ -26,6 +32,33 @@ Publish the config:
 ```bash
 php artisan vendor:publish --tag=statamic-calendar
 ```
+
+### Blueprint Setup
+
+The addon expects a `dates` grid field on your event entries. You can publish an example blueprint to get started:
+
+```bash
+php artisan vendor:publish --tag=statamic-calendar-examples
+```
+
+This publishes to `resources/vendor/statamic-calendar/examples/`. Copy the blueprint to your collection:
+
+```bash
+cp resources/vendor/statamic-calendar/examples/blueprints/collections/events/event.yaml \
+   resources/blueprints/collections/events/event.yaml
+```
+
+Or add the `dates` grid field to your existing blueprint manually. See the example blueprint for the expected sub-field handles (`start_date`, `start_time`, `end_date`, `end_time`, `is_all_day`, `is_recurring`, `frequency`, etc.).
+
+### Build the Cache
+
+After adding events, rebuild the occurrence cache:
+
+```bash
+php artisan occurrences:rebuild
+```
+
+The cache rebuilds automatically when entries are saved or deleted in the Control Panel.
 
 ## URL Strategies
 
@@ -350,3 +383,20 @@ Publish the example blueprint:
 ```bash
 php artisan vendor:publish --tag=statamic-calendar-examples
 ```
+
+Then copy it into your collection's blueprints directory (see [Blueprint Setup](#blueprint-setup) above).
+
+## Testing
+
+```bash
+composer install
+vendor/bin/pest
+```
+
+## Contributing
+
+Contributions are welcome! Please open an issue first to discuss what you'd like to change.
+
+## License
+
+MIT — see [LICENSE.md](LICENSE.md) for details.
