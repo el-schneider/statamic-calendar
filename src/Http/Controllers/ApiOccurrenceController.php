@@ -42,8 +42,8 @@ class ApiOccurrenceController
         $page = $request->integer('page');
 
         if ($page > 0) {
-            $maxPerPage = (int) config('statamic-calendar.api.max_per_page', 100);
-            $perPage = min($request->integer('per_page', 15), $maxPerPage);
+            $maxPerPage = max(1, (int) config('statamic-calendar.api.max_per_page', 100));
+            $perPage = max(1, min($request->integer('per_page', 15), $maxPerPage));
             $total = $occurrences->count();
             $items = $occurrences->values()->forPage($page, $perPage);
 

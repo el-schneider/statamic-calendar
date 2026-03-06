@@ -221,3 +221,23 @@ test('combines pagination with filters', function () {
         ->assertJsonCount(1, 'data')
         ->assertJsonPath('total', 2);
 });
+
+test('per_page=0 does not error and falls back to 1 per page', function () {
+    $this->getJson('/api/calendar/occurrences?from=2026-02-01&page=1&per_page=0')
+        ->assertOk()
+        ->assertJsonPath('per_page', 1);
+});
+
+test('negative per_page does not error and falls back to 1 per page', function () {
+    $this->getJson('/api/calendar/occurrences?from=2026-02-01&page=1&per_page=-5')
+        ->assertOk()
+        ->assertJsonPath('per_page', 1);
+});
+
+test('max_per_page misconfigured to 0 does not error and clamps to 1', function () {
+    config(['statamic-calendar.api.max_per_page' => 0]);
+
+    $this->getJson('/api/calendar/occurrences?from=2026-02-01&page=1&per_page=15')
+        ->assertOk()
+        ->assertJsonPath('per_page', 1);
+});

@@ -395,8 +395,10 @@ class Calendar extends Tags
 
         $allOccurrences = collect();
 
+        $resolverLimit = $paginate > 0 ? null : $limit;
+
         foreach ($entries as $entry) {
-            $occurrences = $this->resolver->resolve($entry, $from, $to, $limit);
+            $occurrences = $this->resolver->resolve($entry, $from, $to, $resolverLimit);
             $allOccurrences = $allOccurrences->merge($occurrences);
         }
 
