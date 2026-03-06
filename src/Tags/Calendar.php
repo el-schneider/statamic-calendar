@@ -11,33 +11,56 @@ use ElSchneider\StatamicCalendar\Occurrences\OccurrenceData;
 use ElSchneider\StatamicCalendar\Occurrences\OccurrenceResolver;
 use Illuminate\Support\Facades\URL;
 use Statamic\Contracts\Taxonomies\Term;
+use Statamic\Extensions\Pagination\LengthAwarePaginator;
 use Statamic\Facades\Entry;
 use Statamic\Stache\Query\TermQueryBuilder;
+use Statamic\Tags\Concerns\OutputsItems;
 use Statamic\Tags\Tags;
 
 class Calendar extends Tags
 {
+    use OutputsItems;
+
     protected static $handle = 'calendar';
 
     public function __construct(
         protected OccurrenceResolver $resolver
     ) {}
 
-    public function index(): array
+    protected function paginatedOutput($paginator): mixed
+    {
+        $paginator->withQueryString();
+
+        if ($window = $this->params->int('on_each_side')) {
+            $paginator->onEachSide($window);
+        }
+
+        $as = $this->getPaginationResultsKey();
+        $items = $paginator->getCollection();
+
+        return array_merge([
+            $as => $items,
+            'paginate' => $this->getPaginationData($paginator),
+        ], $this->extraOutput($items));
+    }
+
+    public function index(): mixed
     {
         $collection = (string) $this->params->get('collection', config('statamic-calendar.collection', 'events'));
         $from = $this->params->has('from') ? Carbon::parse((string) $this->params->get('from')) : Carbon::now();
         $to = $this->params->has('to') ? Carbon::parse((string) $this->params->get('to')) : null;
         $limit = $this->params->int('limit');
         $sort = (string) $this->params->get('sort', 'asc');
+        $paginate = $this->params->int('paginate');
+        $pageName = (string) $this->params->get('page_name', 'page');
 
         $tags = $this->params->get('tags');
 
         if ($collection === config('statamic-calendar.collection', 'events')) {
-            return $this->indexFromCache($from, $to, $limit, $tags, $sort);
+            return $this->indexFromCache($from, $to, $limit, $tags, $sort, $paginate, $pageName);
         }
 
-        return $this->indexFromResolver($collection, $from, $to, $limit, $tags, $sort);
+        return $this->indexFromResolver($collection, $from, $to, $limit, $tags, $sort, $paginate, $pageName);
     }
 
     /**
@@ -83,15 +106,33 @@ class Calendar extends Tags
     /**
      * Usage: {{ calendar:for_organizer :organizer="id" limit="5" }}
      */
-    public function forOrganizer(): array
+    public function forOrganizer(): mixed
     {
         $organizerId = $this->params->get('organizer') ?? $this->context->get('id');
         $limit = $this->params->int('limit', 5);
-        $from = Carbon::now();
+        $from = $this->params->has('from') ? Carbon::parse((string) $this->params->get('from')) : Carbon::now();
+        $paginate = $this->params->int('paginate');
+        $pageName = (string) $this->params->get('page_name', 'page');
 
-        return Occurrences::forOrganizer((is_string($organizerId) || is_int($organizerId)) ? (string) $organizerId : null)
+        $occurrences = Occurrences::forOrganizer((is_string($organizerId) || is_int($organizerId)) ? (string) $organizerId : null)
             ->filter(fn (OccurrenceData $o) => $o->start->gte($from))
-            ->sortBy(fn (OccurrenceData $o) => $o->start)
+            ->sortBy(fn (OccurrenceData $o) => $o->start);
+
+        if ($paginate > 0) {
+            $mapped = $occurrences->map(fn (OccurrenceData $o) => $this->occurrenceDataToArray($o))->values();
+            $page = (int) request()->input($pageName, 1);
+            $paginator = new LengthAwarePaginator(
+                $mapped->forPage($page, $paginate),
+                $mapped->count(),
+                $paginate,
+                $page,
+                ['path' => request()->url(), 'pageName' => $pageName]
+            );
+
+            return $this->output($paginator);
+        }
+
+        return $occurrences
             ->take($limit)
             ->map(fn (OccurrenceData $o) => $this->occurrenceDataToArray($o))
             ->values()
@@ -266,7 +307,7 @@ class Calendar extends Tags
         return $labels;
     }
 
-    private function indexFromCache(Carbon $from, ?Carbon $to, ?int $limit, $tags, string $sort = 'asc'): array
+    private function indexFromCache(Carbon $from, ?Carbon $to, ?int $limit, $tags, string $sort = 'asc', int $paginate = 0, string $pageName = 'page'): mixed
     {
         $occurrences = Occurrences::all()
             ->filter(fn (OccurrenceData $o) => $o->start->gte($from))
@@ -282,6 +323,20 @@ class Calendar extends Tags
         $occurrences = $sort === 'desc'
             ? $occurrences->sortByDesc(fn (OccurrenceData $o) => $o->start)
             : $occurrences->sortBy(fn (OccurrenceData $o) => $o->start);
+
+        if ($paginate > 0) {
+            $mapped = $occurrences->map(fn (OccurrenceData $o) => $this->occurrenceDataToArray($o))->values();
+            $page = (int) request()->input($pageName, 1);
+            $paginator = new LengthAwarePaginator(
+                $mapped->forPage($page, $paginate),
+                $mapped->count(),
+                $paginate,
+                $page,
+                ['path' => request()->url(), 'pageName' => $pageName]
+            );
+
+            return $this->output($paginator);
+        }
 
         if ($limit) {
             $occurrences = $occurrences->take($limit);
@@ -320,7 +375,7 @@ class Calendar extends Tags
             ->all();
     }
 
-    private function indexFromResolver(string $collection, Carbon $from, ?Carbon $to, ?int $limit, $tags, string $sort = 'asc'): array
+    private function indexFromResolver(string $collection, Carbon $from, ?Carbon $to, ?int $limit, $tags, string $sort = 'asc', int $paginate = 0, string $pageName = 'page'): mixed
     {
         $query = Entry::query()->where('collection', $collection);
 
@@ -348,6 +403,20 @@ class Calendar extends Tags
         $allOccurrences = $sort === 'desc'
             ? $allOccurrences->sortByDesc(fn (Occurrence $o) => $o->start)
             : $allOccurrences->sortBy(fn (Occurrence $o) => $o->start);
+
+        if ($paginate > 0) {
+            $mapped = $allOccurrences->map(fn (Occurrence $o) => $this->occurrenceToArray($o))->values();
+            $page = (int) request()->input($pageName, 1);
+            $paginator = new LengthAwarePaginator(
+                $mapped->forPage($page, $paginate),
+                $mapped->count(),
+                $paginate,
+                $page,
+                ['path' => request()->url(), 'pageName' => $pageName]
+            );
+
+            return $this->output($paginator);
+        }
 
         if ($limit) {
             $allOccurrences = $allOccurrences->take($limit);

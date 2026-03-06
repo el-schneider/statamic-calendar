@@ -9,6 +9,7 @@ use ElSchneider\StatamicCalendar\Facades\Occurrences;
 use ElSchneider\StatamicCalendar\Occurrences\OccurrenceData;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 class ApiOccurrenceController
 {
@@ -37,6 +38,26 @@ class ApiOccurrenceController
         $occurrences = $sort === 'desc'
             ? $occurrences->sortByDesc(fn (OccurrenceData $o) => $o->start)
             : $occurrences->sortBy(fn (OccurrenceData $o) => $o->start);
+
+        $page = $request->integer('page');
+
+        if ($page > 0) {
+            $maxPerPage = (int) config('statamic-calendar.api.max_per_page', 100);
+            $perPage = min($request->integer('per_page', 15), $maxPerPage);
+            $total = $occurrences->count();
+            $items = $occurrences->values()->forPage($page, $perPage);
+
+            $paginator = new LengthAwarePaginator(
+                $items->map(fn (OccurrenceData $o) => $o->toArray())->values(),
+                $total,
+                $perPage,
+                $page,
+                ['path' => $request->url(), 'pageName' => 'page']
+            );
+            $paginator->appends($request->query());
+
+            return new JsonResponse($paginator->toArray());
+        }
 
         if ($limit) {
             $occurrences = $occurrences->take($limit);
