@@ -5,7 +5,8 @@ declare(strict_types=1);
 use Carbon\Carbon;
 use ElSchneider\StatamicCalendar\Occurrences\OccurrenceCache;
 use ElSchneider\StatamicCalendar\Occurrences\OccurrenceData;
-use Statamic\Facades\Antlers;
+use ElSchneider\StatamicCalendar\Tags\Calendar;
+use Statamic\Contracts\View\Antlers\Parser;
 
 beforeEach(function () {
     Carbon::setTestNow('2026-02-01 00:00:00');
@@ -49,7 +50,9 @@ beforeEach(function () {
         ]),
     ]);
 
-    $orgOneOccurrences = $this->tagOccurrences->filter(fn (OccurrenceData $o) => $o->organizerId === 'org-1')->values();
+    $orgOneOccurrences = $this->tagOccurrences
+        ->filter(fn (OccurrenceData $o) => $o->organizerId === 'org-1')
+        ->values();
 
     $mock = Mockery::mock(OccurrenceCache::class);
     $mock->shouldReceive('all')->andReturn($this->tagOccurrences);
@@ -58,6 +61,21 @@ beforeEach(function () {
 });
 
 afterEach(fn () => Carbon::setTestNow());
+
+function calendarTag(array $params = [], string $content = ''): Calendar
+{
+    $tag = app(Calendar::class);
+    $tag->setProperties([
+        'parser' => app(Parser::class),
+        'content' => $content,
+        'context' => [],
+        'params' => $params,
+        'tag' => 'calendar',
+        'tag_method' => 'index',
+    ]);
+
+    return $tag;
+}
 
 function makeTagOccurrence(array $overrides = []): OccurrenceData
 {
@@ -82,47 +100,44 @@ function makeTagOccurrence(array $overrides = []): OccurrenceData
 }
 
 test('index returns all items without paginate param', function () {
-    $template = '{{ calendar from="2026-02-01" }}{{ title }}|{{ /calendar }}';
-    $output = (string) Antlers::parse($template, []);
+    $result = calendarTag(['from' => '2026-02-01'])->index();
 
-    expect($output)->toContain('Event A');
-    expect($output)->toContain('Event B');
-    expect($output)->toContain('Event C');
-    expect($output)->toContain('Event D');
+    expect($result)->toBeArray()->toHaveCount(4);
+
+    $titles = array_column($result, 'title');
+    expect($titles)->toBe(['Event A', 'Event B', 'Event C', 'Event D']);
 });
 
 test('index paginates when paginate param is set', function () {
-    $template = '{{ calendar from="2026-02-01" paginate="2" as="items" }}{{ items }}{{ title }}|{{ /items }}TOTAL:{{ paginate:total_items }}{{ /calendar }}';
-    $output = (string) Antlers::parse($template, []);
+    $result = calendarTag(['from' => '2026-02-01', 'paginate' => '2', 'as' => 'items'])->index();
 
-    // Only 2 items on page 1
-    expect($output)->toContain('Event A');
-    expect($output)->toContain('Event B');
-    expect($output)->not->toContain('Event C');
-    expect($output)->not->toContain('Event D');
-    expect($output)->toContain('TOTAL:4');
+    expect($result)->toHaveKey('items');
+    expect($result)->toHaveKey('paginate');
+    expect($result['items'])->toHaveCount(2);
+
+    $titles = $result['items']->pluck('title')->all();
+    expect($titles)->toBe(['Event A', 'Event B']);
+    expect($result['paginate']['total_items'])->toBe(4);
+    expect($result['paginate']['total_pages'])->toBe(2);
 });
 
 test('index pagination respects page query param', function () {
     request()->merge(['page' => 2]);
 
-    $template = '{{ calendar from="2026-02-01" paginate="2" as="items" }}{{ items }}{{ title }}|{{ /items }}TOTAL:{{ paginate:total_items }}{{ /calendar }}';
-    $output = (string) Antlers::parse($template, []);
+    $result = calendarTag(['from' => '2026-02-01', 'paginate' => '2', 'as' => 'items'])->index();
 
-    // Page 2 should show items 3 and 4
-    expect($output)->not->toContain('Event A');
-    expect($output)->not->toContain('Event B');
-    expect($output)->toContain('Event C');
-    expect($output)->toContain('Event D');
-    expect($output)->toContain('TOTAL:4');
+    $titles = $result['items']->pluck('title')->all();
+    expect($titles)->toBe(['Event C', 'Event D']);
+    expect($result['paginate']['total_items'])->toBe(4);
 });
 
 test('for_organizer paginates', function () {
-    $template = '{{ calendar:for_organizer organizer="org-1" from="2026-02-01" paginate="1" as="items" }}{{ items }}{{ title }}{{ /items }}TOTAL:{{ paginate:total_items }}{{ /calendar:for_organizer }}';
-    $output = (string) Antlers::parse($template, []);
+    $tag = calendarTag(['organizer' => 'org-1', 'from' => '2026-02-01', 'paginate' => '1', 'as' => 'items']);
+    $result = $tag->forOrganizer();
 
-    // org-1 has Event A and Event B; paginate=1 shows only first page
-    expect($output)->toContain('TOTAL:2');
-    expect($output)->toContain('Event A');
-    expect($output)->not->toContain('Event B');
+    expect($result)->toHaveKey('items');
+    expect($result)->toHaveKey('paginate');
+    expect($result['items'])->toHaveCount(1);
+    expect($result['items']->first()['title'])->toBe('Event A');
+    expect($result['paginate']['total_items'])->toBe(2);
 });

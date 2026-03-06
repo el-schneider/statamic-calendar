@@ -27,23 +27,6 @@ class Calendar extends Tags
         protected OccurrenceResolver $resolver
     ) {}
 
-    protected function paginatedOutput($paginator): mixed
-    {
-        $paginator->withQueryString();
-
-        if ($window = $this->params->int('on_each_side')) {
-            $paginator->onEachSide($window);
-        }
-
-        $as = $this->getPaginationResultsKey();
-        $items = $paginator->getCollection();
-
-        return array_merge([
-            $as => $items,
-            'paginate' => $this->getPaginationData($paginator),
-        ], $this->extraOutput($items));
-    }
-
     public function index(): mixed
     {
         $collection = (string) $this->params->get('collection', config('statamic-calendar.collection', 'events'));
@@ -237,6 +220,23 @@ class Calendar extends Tags
         }
 
         return $occurrences->map(fn (Occurrence $o) => $this->occurrenceToArray($o))->values()->all();
+    }
+
+    protected function paginatedOutput($paginator): mixed
+    {
+        $paginator->withQueryString();
+
+        if ($window = $this->params->int('on_each_side')) {
+            $paginator->onEachSide($window);
+        }
+
+        $as = $this->getPaginationResultsKey();
+        $items = $paginator->getCollection();
+
+        return array_merge([
+            $as => $items,
+            'paginate' => $this->getPaginationData($paginator),
+        ], $this->extraOutput($items));
     }
 
     /**
