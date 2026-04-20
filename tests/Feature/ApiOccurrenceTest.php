@@ -51,8 +51,22 @@ beforeEach(function () {
         ]),
     ]);
 
+    $excluded = makeApiOccurrence([
+        'id' => 'eee-2026-03-15-100000',
+        'entry_id' => 'eee',
+        'title' => 'Cancelled Yoga',
+        'slug' => 'cancelled-yoga',
+        'start' => '2026-03-15T10:00:00+00:00',
+        'end' => '2026-03-15T11:00:00+00:00',
+        'is_excluded' => true,
+        'replacement_date' => '2026-03-22T00:00:00+00:00',
+    ]);
+
     $mock = Mockery::mock(OccurrenceCache::class);
-    $mock->shouldReceive('all')->andReturn($this->occurrences);
+    // Mirror the cache contract: default (false) strips excluded, true keeps them.
+    // Fresh collections so the mocked returns can't alias each other.
+    $mock->shouldReceive('all')->with(false)->andReturnUsing(fn () => $this->occurrences->values());
+    $mock->shouldReceive('all')->with(true)->andReturnUsing(fn () => $this->occurrences->concat([$excluded])->values());
     $this->app->instance(OccurrenceCache::class, $mock);
 });
 
@@ -77,6 +91,9 @@ function makeApiOccurrence(array $overrides = []): OccurrenceData
         'is_recurring' => false,
         'recurrence_description' => null,
         'url' => '/events/test-event',
+        'is_excluded' => false,
+        'replacement_date' => null,
+        'replaces_date' => null,
     ], $overrides));
 }
 
@@ -175,4 +192,21 @@ test('response contains expected fields', function () {
 test('returns 404 when api is disabled', function () {
     $this->getJson('/api/calendar/occurrences-that-does-not-exist')
         ->assertNotFound();
+});
+
+test('excludes cancelled occurrences by default', function () {
+    $this->getJson('/api/calendar/occurrences')
+        ->assertOk()
+        ->assertJsonMissing(['title' => 'Cancelled Yoga']);
+});
+
+test('include_excluded=1 surfaces cancelled occurrences with metadata', function () {
+    $response = $this->getJson('/api/calendar/occurrences?include_excluded=1')->assertOk();
+
+    $titles = collect($response->json('data'))->pluck('title');
+    expect($titles)->toContain('Cancelled Yoga');
+
+    $cancelled = collect($response->json('data'))->firstWhere('title', 'Cancelled Yoga');
+    expect($cancelled['is_excluded'])->toBeTrue();
+    expect($cancelled['replacement_date'])->toContain('2026-03-22');
 });
