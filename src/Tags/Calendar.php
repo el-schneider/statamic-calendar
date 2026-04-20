@@ -70,7 +70,7 @@ class Calendar extends Tags
         }
 
         return $this->parse([
-            'occurrence_id' => $entry->id().'-'.$occurrence->start->format('Y-m-d-His'),
+            'occurrence_id' => OccurrenceData::composeId($entry->id(), $occurrence->start),
             'start' => $occurrence->start,
             'end' => $occurrence->end,
             'is_all_day' => $occurrence->isAllDay,
@@ -386,7 +386,7 @@ class Calendar extends Tags
         $augmented = $occurrence->entry->toAugmentedArray();
 
         return array_merge($augmented, [
-            'occurrence_id' => $occurrence->entry->id().'-'.$occurrence->start->format('Y-m-d-His'),
+            'occurrence_id' => OccurrenceData::composeId($occurrence->entry->id(), $occurrence->start),
             'start' => $occurrence->start,
             'end' => $occurrence->end,
             'is_all_day' => $occurrence->isAllDay,
