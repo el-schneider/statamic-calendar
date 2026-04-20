@@ -2,7 +2,15 @@
 
 declare(strict_types=1);
 
+use Carbon\Carbon;
 use ElSchneider\StatamicCalendar\Occurrences\OccurrenceData;
+
+test('composeId formats as {entry_id}-{Y-m-d-His} and coerces int ids', function () {
+    $start = Carbon::parse('2026-03-06 15:00:00');
+
+    expect(OccurrenceData::composeId('abc-123', $start))->toBe('abc-123-2026-03-06-150000');
+    expect(OccurrenceData::composeId(42, $start))->toBe('42-2026-03-06-150000');
+});
 
 test('OccurrenceData can be created from array and serialized back', function () {
     $data = [

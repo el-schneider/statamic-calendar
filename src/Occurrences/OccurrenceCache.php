@@ -129,7 +129,7 @@ class OccurrenceCache
 
             foreach ($eventOccurrences as $occurrence) {
                 $occurrences->push([
-                    'id' => $entryId.'-'.$occurrence->start->format('Y-m-d-His'),
+                    'id' => OccurrenceData::composeId($entryId, $occurrence->start),
                     'entry_id' => $entryId,
                     'title' => (string) $entry->get('title'),
                     'slug' => $entry->slug(),

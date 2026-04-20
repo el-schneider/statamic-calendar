@@ -34,6 +34,15 @@ readonly class OccurrenceData
         public string $url,
     ) {}
 
+    /**
+     * Composes the stable occurrence id used for .ics downloads and cache
+     * keys. Single source of truth — all call sites go through this.
+     */
+    public static function composeId(string|int $entryId, Carbon $start): string
+    {
+        return ((string) $entryId).'-'.$start->format('Y-m-d-His');
+    }
+
     public static function fromArray(array $data): self
     {
         return new self(

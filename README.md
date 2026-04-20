@@ -121,7 +121,7 @@ The addon exposes an .ics feed that calendar apps (Apple Calendar, Google Calend
 
 {{-- Per-event download inside a calendar loop --}}
 {{ calendar from="now" limit="10" }}
-  <a href="{{ calendar:ics_download_url :occurrence_id="id" }}">
+  <a href="{{ calendar:ics_download_url }}">
     Add to calendar
   </a>
 {{ /calendar }}
@@ -329,13 +329,13 @@ Returns the .ics download URL for a single occurrence. Use inside any `{{ calend
 ```antlers
 {{ calendar from="now" limit="10" }}
   <h2>{{ title }}</h2>
-  <a href="{{ calendar:ics_download_url :occurrence_id="id" }}">Add to calendar</a>
+  <a href="{{ calendar:ics_download_url }}">Add to calendar</a>
 {{ /calendar }}
 ```
 
-| Parameter      | Description  | Default              |
-| -------------- | ------------ | -------------------- |
-| `occurrence_id` | Occurrence ID (`{entry_id}-{Y-m-d-His}`) | current context `id` |
+| Parameter       | Description                                | Default                                  |
+| --------------- | ------------------------------------------ | ---------------------------------------- |
+| `occurrence_id` | Occurrence ID (`{entry_id}-{Y-m-d-His}`)   | context `occurrence_id`, else `id`       |
 
 ### `{{ calendar:for_organizer }}`
 
