@@ -14,6 +14,12 @@ readonly class OccurrenceData
     /**
      * @param  string|null  $teaser  Short description for listing views
      * @param  array<string>  $tags  Tag slugs for filtering
+     * @param  bool  $isExcluded  Occurrence was cancelled or rescheduled away from this date.
+     *                            Hidden from reads by default — opt in via `include_excluded`.
+     * @param  ?Carbon  $replacementDate  For excluded occurrences: the date the event moved to.
+     *                                    Null when the occurrence was cancelled outright.
+     * @param  ?Carbon  $replacesDate  For non-excluded occurrences that replace a rescheduled one:
+     *                                 the original date this occurrence replaces.
      */
     public function __construct(
         public string $id,
@@ -32,6 +38,9 @@ readonly class OccurrenceData
         public bool $isRecurring,
         public ?string $recurrenceDescription,
         public string $url,
+        public bool $isExcluded = false,
+        public ?Carbon $replacementDate = null,
+        public ?Carbon $replacesDate = null,
     ) {}
 
     /**
@@ -62,6 +71,9 @@ readonly class OccurrenceData
             isRecurring: (bool) $data['is_recurring'],
             recurrenceDescription: $data['recurrence_description'] ?? null,
             url: $data['url'],
+            isExcluded: (bool) ($data['is_excluded'] ?? false),
+            replacementDate: ! empty($data['replacement_date']) ? Carbon::parse($data['replacement_date']) : null,
+            replacesDate: ! empty($data['replaces_date']) ? Carbon::parse($data['replaces_date']) : null,
         );
     }
 
@@ -84,6 +96,9 @@ readonly class OccurrenceData
             'is_recurring' => $this->isRecurring,
             'recurrence_description' => $this->recurrenceDescription,
             'url' => $this->url,
+            'is_excluded' => $this->isExcluded,
+            'replacement_date' => $this->replacementDate?->toIso8601String(),
+            'replaces_date' => $this->replacesDate?->toIso8601String(),
         ];
     }
 
