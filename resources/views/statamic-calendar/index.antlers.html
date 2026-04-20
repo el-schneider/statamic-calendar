@@ -142,22 +142,47 @@
         <div>
             <h1 class="text-3xl font-bold mb-8">Upcoming Events</h1>
 
+            {{#
+                `include_excluded="true"` surfaces cancelled/rescheduled occurrences
+                with `is_excluded`, `replacement_date`, and `replaces_date` so you can
+                render strike-through cancellations and "moved to …" links inline.
+                Omit the parameter to keep the default behaviour (excluded dates hidden).
+            #}}
             <div class="space-y-4">
-                {{ calendar from="now" limit="10" }}
-                    <a
-                        href="{{ url }}"
-                        class="block p-4 bg-white dark:bg-zinc-800 rounded shadow hover:shadow-md hover:bg-zinc-50 dark:hover:bg-zinc-700/50 transition-all"
-                    >
-                        <h2 class="text-lg font-semibold">{{ title }}</h2>
-                        <p class="text-sm text-zinc-500 dark:text-zinc-400">
-                            {{ start format="l, M j, Y" }}
-                            {{ if start_time }}at {{ start format="g:i A" }}{{ /if }}
-                            {{ if is_all_day }}(All day){{ /if }}
-                        </p>
-                        {{ if is_recurring }}
-                            <p class="text-xs text-zinc-400 dark:text-zinc-500 mt-1">↻ {{ recurrence_description }}</p>
-                        {{ /if }}
-                    </a>
+                {{ calendar from="now" limit="10" include_excluded="true" }}
+                    {{ if is_excluded }}
+                        <div class="block p-4 bg-white dark:bg-zinc-800 rounded shadow opacity-60">
+                            <h2 class="text-lg font-semibold line-through">{{ title }}</h2>
+                            <p class="text-sm text-zinc-500 dark:text-zinc-400">
+                                <span class="line-through">{{ start format="l, M j, Y" }}</span>
+                                {{ if replacement_date }}
+                                    <span class="ml-2 not-italic text-blue-600 dark:text-blue-400">
+                                        → moved to {{ replacement_date format="l, M j" }}
+                                    </span>
+                                {{ else }}
+                                    <span class="ml-2 text-red-600 dark:text-red-400">(cancelled)</span>
+                                {{ /if }}
+                            </p>
+                        </div>
+                    {{ else }}
+                        <a
+                            href="{{ url }}"
+                            class="block p-4 bg-white dark:bg-zinc-800 rounded shadow hover:shadow-md hover:bg-zinc-50 dark:hover:bg-zinc-700/50 transition-all"
+                        >
+                            <h2 class="text-lg font-semibold">{{ title }}</h2>
+                            <p class="text-sm text-zinc-500 dark:text-zinc-400">
+                                {{ start format="l, M j, Y" }}
+                                {{ if start_time }}at {{ start format="g:i A" }}{{ /if }}
+                                {{ if is_all_day }}(All day){{ /if }}
+                                {{ if replaces_date }}
+                                    <span class="ml-2 text-xs text-zinc-400">(rescheduled from {{ replaces_date format="M j" }})</span>
+                                {{ /if }}
+                            </p>
+                            {{ if is_recurring }}
+                                <p class="text-xs text-zinc-400 dark:text-zinc-500 mt-1">↻ {{ recurrence_description }}</p>
+                            {{ /if }}
+                        </a>
+                    {{ /if }}
                 {{ /calendar }}
             </div>
         </div>

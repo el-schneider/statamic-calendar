@@ -14,9 +14,13 @@ use Statamic\Facades\Entry;
 class OccurrenceCache
 {
     /**
+     * Excluded occurrences are always stored in the cache so the dataset
+     * stays complete. Reads filter them out by default — pass
+     * $includeExcluded=true to surface cancellations and rescheduled dates.
+     *
      * @return Collection<int, OccurrenceData>
      */
-    public function all(): Collection
+    public function all(bool $includeExcluded = false): Collection
     {
         if (! $this->isBuilt()) {
             $this->rebuild();
@@ -24,15 +28,19 @@ class OccurrenceCache
 
         $cached = Cache::get($this->cacheKey(), []);
 
-        return collect($cached)->map(fn (array $data) => OccurrenceData::fromArray($data));
+        $occurrences = collect($cached)->map(fn (array $data) => OccurrenceData::fromArray($data));
+
+        return $includeExcluded
+            ? $occurrences
+            : $occurrences->reject(fn (OccurrenceData $o) => $o->isExcluded)->values();
     }
 
     /**
      * @return Collection<int, OccurrenceData>
      */
-    public function on(Carbon $date): Collection
+    public function on(Carbon $date, bool $includeExcluded = false): Collection
     {
-        return $this->all()->filter(
+        return $this->all($includeExcluded)->filter(
             fn (OccurrenceData $o) => $o->start->isSameDay($date)
         )->values();
     }
@@ -40,9 +48,9 @@ class OccurrenceCache
     /**
      * @return Collection<int, OccurrenceData>
      */
-    public function between(Carbon $from, Carbon $to): Collection
+    public function between(Carbon $from, Carbon $to, bool $includeExcluded = false): Collection
     {
-        return $this->all()->filter(
+        return $this->all($includeExcluded)->filter(
             fn (OccurrenceData $o) => $o->start->gte($from) && $o->start->lte($to)
         )->values();
     }
@@ -50,11 +58,11 @@ class OccurrenceCache
     /**
      * @return Collection<int, OccurrenceData>
      */
-    public function forEntry(string|int $entryId): Collection
+    public function forEntry(string|int $entryId, bool $includeExcluded = false): Collection
     {
         $entryId = (string) $entryId;
 
-        return $this->all()->filter(
+        return $this->all($includeExcluded)->filter(
             fn (OccurrenceData $o) => $o->entryId === $entryId
         )->values();
     }
@@ -62,11 +70,11 @@ class OccurrenceCache
     /**
      * @return Collection<int, OccurrenceData>
      */
-    public function forOrganizer(string|int|null $organizerId): Collection
+    public function forOrganizer(string|int|null $organizerId, bool $includeExcluded = false): Collection
     {
         $organizerId = $organizerId !== null ? (string) $organizerId : null;
 
-        return $this->all()->filter(
+        return $this->all($includeExcluded)->filter(
             fn (OccurrenceData $o) => $o->organizerId === $organizerId
         )->values();
     }
@@ -74,11 +82,11 @@ class OccurrenceCache
     /**
      * @return Collection<int, OccurrenceData>
      */
-    public function upcoming(int $limit = 10): Collection
+    public function upcoming(int $limit = 10, bool $includeExcluded = false): Collection
     {
         $now = Carbon::now();
 
-        return $this->all()
+        return $this->all($includeExcluded)
             ->filter(fn (OccurrenceData $o) => $o->start->gte($now))
             ->sortBy(fn (OccurrenceData $o) => $o->start)
             ->take($limit)
@@ -122,7 +130,9 @@ class OccurrenceCache
                 continue;
             }
 
-            $eventOccurrences = $resolver->resolve($entry, $eventFrom, $to);
+            // Always cache excluded occurrences — the store is the source of
+            // truth, and read-time filtering honors the caller's intent.
+            $eventOccurrences = $resolver->resolve($entry, $eventFrom, $to, includeExcluded: true);
 
             $entryId = (string) $entry->id();
             $organizerData = $this->extractOrganizerData($entry);
@@ -145,6 +155,9 @@ class OccurrenceCache
                     'is_recurring' => $occurrence->isRecurring,
                     'recurrence_description' => $occurrence->recurrenceDescription,
                     'url' => $occurrence->url(),
+                    'is_excluded' => $occurrence->isExcluded,
+                    'replacement_date' => $occurrence->replacementDate?->toIso8601String(),
+                    'replaces_date' => $occurrence->replacesDate?->toIso8601String(),
                 ]);
             }
         }
