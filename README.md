@@ -160,6 +160,7 @@ STATAMIC_CALENDAR_API_ENABLED=true
 | `sort`      | `string` | `asc` or `desc`                 | `asc`   |
 | `tags`      | `string` | Comma-separated tag slugs       | —       |
 | `organizer` | `string` | Organizer entry ID              | —       |
+| `include_excluded` | `bool` | Surface cancelled/rescheduled occurrences (`is_excluded`, `replacement_date`, `replaces_date`) | `false` |
 
 ### Response
 
@@ -182,7 +183,10 @@ STATAMIC_CALENDAR_API_ENABLED=true
       "is_all_day": false,
       "is_recurring": true,
       "recurrence_description": "every week on Friday",
-      "url": "/events/laracon-online?date=2026-03-06"
+      "url": "/events/laracon-online?date=2026-03-06",
+      "is_excluded": false,
+      "replacement_date": null,
+      "replaces_date": null
     }
   ]
 }
