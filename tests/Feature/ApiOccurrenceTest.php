@@ -234,6 +234,15 @@ test('negative per_page does not error and falls back to 1 per page', function (
         ->assertJsonPath('per_page', 1);
 });
 
+test('per_page without page activates pagination', function () {
+    $this->getJson('/api/calendar/occurrences?from=2026-02-01&per_page=2')
+        ->assertOk()
+        ->assertJsonCount(2, 'data')
+        ->assertJsonPath('current_page', 1)
+        ->assertJsonPath('per_page', 2)
+        ->assertJsonPath('total', 4);
+});
+
 test('max_per_page misconfigured to 0 does not error and clamps to 1', function () {
     config(['statamic-calendar.api.max_per_page' => 0]);
 

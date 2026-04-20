@@ -101,25 +101,13 @@ class Calendar extends Tags
             ->filter(fn (OccurrenceData $o) => $o->start->gte($from))
             ->sortBy(fn (OccurrenceData $o) => $o->start);
 
-        if ($paginate > 0) {
-            $mapped = $occurrences->map(fn (OccurrenceData $o) => $this->occurrenceDataToArray($o))->values();
-            $page = (int) request()->input($pageName, 1);
-            $paginator = new LengthAwarePaginator(
-                $mapped->forPage($page, $paginate),
-                $mapped->count(),
-                $paginate,
-                $page,
-                ['path' => request()->url(), 'pageName' => $pageName]
-            );
+        $mapped = $occurrences->map(fn (OccurrenceData $o) => $this->occurrenceDataToArray($o))->values();
 
-            return $this->output($paginator);
+        if ($paginate > 0) {
+            return $this->paginate($mapped, $paginate, $pageName);
         }
 
-        return $occurrences
-            ->take($limit)
-            ->map(fn (OccurrenceData $o) => $this->occurrenceDataToArray($o))
-            ->values()
-            ->all();
+        return $this->output($mapped->take($limit));
     }
 
     /**
@@ -222,6 +210,11 @@ class Calendar extends Tags
         return $occurrences->map(fn (Occurrence $o) => $this->occurrenceToArray($o))->values()->all();
     }
 
+    /**
+     * Override Statamic's default to skip ->supplement() — our items are plain
+     * arrays built from OccurrenceData, not augmented Entry instances, so the
+     * upstream call would throw.
+     */
     protected function paginatedOutput($paginator): mixed
     {
         $paginator->withQueryString();
@@ -237,6 +230,21 @@ class Calendar extends Tags
             $as => $items,
             'paginate' => $this->getPaginationData($paginator),
         ], $this->extraOutput($items));
+    }
+
+    private function paginate(\Illuminate\Support\Collection $items, int $perPage, string $pageName): mixed
+    {
+        $page = (int) request()->input($pageName, 1);
+
+        $paginator = new LengthAwarePaginator(
+            $items->forPage($page, $perPage),
+            $items->count(),
+            $perPage,
+            $page,
+            ['path' => request()->url(), 'pageName' => $pageName]
+        );
+
+        return $this->output($paginator);
     }
 
     /**
@@ -324,25 +332,17 @@ class Calendar extends Tags
             ? $occurrences->sortByDesc(fn (OccurrenceData $o) => $o->start)
             : $occurrences->sortBy(fn (OccurrenceData $o) => $o->start);
 
-        if ($paginate > 0) {
-            $mapped = $occurrences->map(fn (OccurrenceData $o) => $this->occurrenceDataToArray($o))->values();
-            $page = (int) request()->input($pageName, 1);
-            $paginator = new LengthAwarePaginator(
-                $mapped->forPage($page, $paginate),
-                $mapped->count(),
-                $paginate,
-                $page,
-                ['path' => request()->url(), 'pageName' => $pageName]
-            );
+        $mapped = $occurrences->map(fn (OccurrenceData $o) => $this->occurrenceDataToArray($o))->values();
 
-            return $this->output($paginator);
+        if ($paginate > 0) {
+            return $this->paginate($mapped, $paginate, $pageName);
         }
 
         if ($limit) {
-            $occurrences = $occurrences->take($limit);
+            $mapped = $mapped->take($limit);
         }
 
-        return $occurrences->map(fn (OccurrenceData $o) => $this->occurrenceDataToArray($o))->values()->all();
+        return $this->output($mapped);
     }
 
     /**
@@ -406,25 +406,17 @@ class Calendar extends Tags
             ? $allOccurrences->sortByDesc(fn (Occurrence $o) => $o->start)
             : $allOccurrences->sortBy(fn (Occurrence $o) => $o->start);
 
-        if ($paginate > 0) {
-            $mapped = $allOccurrences->map(fn (Occurrence $o) => $this->occurrenceToArray($o))->values();
-            $page = (int) request()->input($pageName, 1);
-            $paginator = new LengthAwarePaginator(
-                $mapped->forPage($page, $paginate),
-                $mapped->count(),
-                $paginate,
-                $page,
-                ['path' => request()->url(), 'pageName' => $pageName]
-            );
+        $mapped = $allOccurrences->map(fn (Occurrence $o) => $this->occurrenceToArray($o))->values();
 
-            return $this->output($paginator);
+        if ($paginate > 0) {
+            return $this->paginate($mapped, $paginate, $pageName);
         }
 
         if ($limit) {
-            $allOccurrences = $allOccurrences->take($limit);
+            $mapped = $mapped->take($limit);
         }
 
-        return $allOccurrences->map(fn (Occurrence $o) => $this->occurrenceToArray($o))->values()->all();
+        return $this->output($mapped);
     }
 
     private function getContextStart(): ?Carbon

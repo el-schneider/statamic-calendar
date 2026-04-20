@@ -45,7 +45,7 @@ The `output()` call also enables `as` param support for non-paginated results.
 ```
 request params (page, per_page, + existing filters)
   → filter/sort occurrences (existing logic, unchanged)
-  → if page param present:
+  → if page OR per_page param present:
       → clamp per_page to config max
       → forPage($page, $perPage)
       → return Laravel's default LengthAwarePaginator JSON shape
@@ -54,7 +54,7 @@ request params (page, per_page, + existing filters)
       → return { data } (unchanged, no breaking change)
 ```
 
-Default `per_page`: 15. When `page` and `limit` are both present, `page` wins silently.
+Default `per_page`: 15, default `page`: 1. When `page` and `limit` are both present, `page` wins silently.
 
 Uses Laravel's default paginator JSON shape (flat keys: `data`, `current_page`, `per_page`, `total`, `last_page`, `*_url` links). Existing query params are preserved in pagination URLs.
 

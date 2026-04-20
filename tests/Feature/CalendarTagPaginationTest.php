@@ -102,10 +102,20 @@ function makeTagOccurrence(array $overrides = []): OccurrenceData
 test('index returns all items without paginate param', function () {
     $result = calendarTag(['from' => '2026-02-01'])->index();
 
-    expect($result)->toBeArray()->toHaveCount(4);
+    expect($result)->toHaveCount(4);
 
-    $titles = array_column($result, 'title');
+    $titles = collect($result)->pluck('title')->all();
     expect($titles)->toBe(['Event A', 'Event B', 'Event C', 'Event D']);
+});
+
+test('index supports as param without pagination', function () {
+    $result = calendarTag(['from' => '2026-02-01', 'as' => 'events'])->index();
+
+    expect($result)->toHaveKey('events');
+    expect($result)->toHaveKey('total_results');
+    expect($result)->toHaveKey('no_results');
+    expect($result['total_results'])->toBe(4);
+    expect($result['no_results'])->toBeFalse();
 });
 
 test('index paginates when paginate param is set', function () {
