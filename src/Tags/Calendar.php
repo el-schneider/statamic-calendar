@@ -375,6 +375,16 @@ class Calendar extends Tags
             ->all();
     }
 
+    /**
+     * Live-resolve path for custom collections (not the cache).
+     *
+     * With `paginate`, every matched entry's occurrences are resolved into memory
+     * before slicing. The resolver defaults to a 1-year window when no `to` is
+     * supplied (see OccurrenceResolver::resolveRecurringDate), so this is bounded,
+     * not unbounded — but for calendars with many long-running recurring entries,
+     * pass an explicit `to` to shrink the working set, or use the cached default
+     * collection.
+     */
     private function indexFromResolver(string $collection, Carbon $from, ?Carbon $to, ?int $limit, $tags, string $sort = 'asc', int $paginate = 0, string $pageName = 'page'): mixed
     {
         $query = Entry::query()->where('collection', $collection);
