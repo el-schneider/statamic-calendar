@@ -20,8 +20,9 @@ class ApiOccurrenceController
         $sort = $request->query('sort', 'asc') === 'desc' ? 'desc' : 'asc';
         $tags = $request->query('tags');
         $organizer = $request->query('organizer');
+        $includeExcluded = $request->boolean('include_excluded');
 
-        $occurrences = Occurrences::all()
+        $occurrences = Occurrences::all($includeExcluded)
             ->filter(fn (OccurrenceData $o) => $o->start->gte($from))
             ->when($to, fn ($c) => $c->filter(fn (OccurrenceData $o) => $o->start->lte($to)));
 
