@@ -86,7 +86,7 @@ class ServiceProvider extends AddonServiceProvider
         $route = config('statamic-calendar.api.route', 'api/calendar/occurrences');
         $middleware = config('statamic-calendar.api.middleware', 'api');
 
-        $controller = config('statamic-calendar.api.controller', ApiOccurrenceController::class);
+        $controller = config('statamic-calendar.api.controller') ?: ApiOccurrenceController::class;
 
         Route::middleware($middleware)
             ->get($route, [$controller, 'index'])
