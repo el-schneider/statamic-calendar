@@ -124,6 +124,7 @@ return [
         'enabled' => env('STATAMIC_CALENDAR_API_ENABLED', false),
         'route' => env('STATAMIC_CALENDAR_API_ROUTE', 'api/calendar/occurrences'),
         'middleware' => env('STATAMIC_CALENDAR_API_MIDDLEWARE', 'api'),
+        'max_per_page' => 100,
     ],
 
     /*

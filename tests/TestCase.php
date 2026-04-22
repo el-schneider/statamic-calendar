@@ -13,6 +13,12 @@ use Statamic\Extend\Manifest;
 use Statamic\Providers\StatamicServiceProvider;
 use Statamic\Statamic;
 
+/**
+ * Custom TestCase mirroring Statamic's AddonTestCase but without the
+ * addToAssertionCount(-1) calls that break on PHPUnit 12.
+ *
+ * @see \Statamic\Testing\AddonTestCase
+ */
 abstract class TestCase extends OrchestraTestCase
 {
     protected string $addonServiceProvider = ServiceProvider::class;
@@ -24,9 +30,6 @@ abstract class TestCase extends OrchestraTestCase
         $this->withoutMix();
         $this->withoutVite();
 
-        // Statamic's AddonTestCase uses addToAssertionCount(-1/-2) to
-        // suppress Mockery counts, which PHPUnit 12 forbids (final method,
-        // asserts $count >= 0). We replicate the mocking without that hack.
         Version::shouldReceive('get')->zeroOrMoreTimes()
             ->andReturn(Composer::create(__DIR__.'/../vendor/statamic/cms/')->installedVersion(Statamic::PACKAGE));
 

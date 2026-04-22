@@ -11,33 +11,39 @@ use ElSchneider\StatamicCalendar\Occurrences\OccurrenceData;
 use ElSchneider\StatamicCalendar\Occurrences\OccurrenceResolver;
 use Illuminate\Support\Facades\URL;
 use Statamic\Contracts\Taxonomies\Term;
+use Statamic\Extensions\Pagination\LengthAwarePaginator;
 use Statamic\Facades\Entry;
 use Statamic\Stache\Query\TermQueryBuilder;
+use Statamic\Tags\Concerns\OutputsItems;
 use Statamic\Tags\Tags;
 
 class Calendar extends Tags
 {
+    use OutputsItems;
+
     protected static $handle = 'calendar';
 
     public function __construct(
         protected OccurrenceResolver $resolver
     ) {}
 
-    public function index(): array
+    public function index(): mixed
     {
         $collection = (string) $this->params->get('collection', config('statamic-calendar.collection', 'events'));
         $from = $this->params->has('from') ? Carbon::parse((string) $this->params->get('from')) : Carbon::now();
         $to = $this->params->has('to') ? Carbon::parse((string) $this->params->get('to')) : null;
         $limit = $this->params->int('limit');
         $sort = (string) $this->params->get('sort', 'asc');
+        $paginate = $this->params->int('paginate');
+        $pageName = (string) $this->params->get('page_name', 'page');
 
         $tags = $this->params->get('tags');
 
         if ($collection === config('statamic-calendar.collection', 'events')) {
-            return $this->indexFromCache($from, $to, $limit, $tags, $sort);
+            return $this->indexFromCache($from, $to, $limit, $tags, $sort, $paginate, $pageName);
         }
 
-        return $this->indexFromResolver($collection, $from, $to, $limit, $tags, $sort);
+        return $this->indexFromResolver($collection, $from, $to, $limit, $tags, $sort, $paginate, $pageName);
     }
 
     /**
@@ -83,19 +89,25 @@ class Calendar extends Tags
     /**
      * Usage: {{ calendar:for_organizer :organizer="id" limit="5" }}
      */
-    public function forOrganizer(): array
+    public function forOrganizer(): mixed
     {
         $organizerId = $this->params->get('organizer') ?? $this->context->get('id');
         $limit = $this->params->int('limit', 5);
-        $from = Carbon::now();
+        $from = $this->params->has('from') ? Carbon::parse((string) $this->params->get('from')) : Carbon::now();
+        $paginate = $this->params->int('paginate');
+        $pageName = (string) $this->params->get('page_name', 'page');
 
-        return Occurrences::forOrganizer((is_string($organizerId) || is_int($organizerId)) ? (string) $organizerId : null)
+        $occurrences = Occurrences::forOrganizer((is_string($organizerId) || is_int($organizerId)) ? (string) $organizerId : null)
             ->filter(fn (OccurrenceData $o) => $o->start->gte($from))
-            ->sortBy(fn (OccurrenceData $o) => $o->start)
-            ->take($limit)
-            ->map(fn (OccurrenceData $o) => $this->occurrenceDataToArray($o))
-            ->values()
-            ->all();
+            ->sortBy(fn (OccurrenceData $o) => $o->start);
+
+        $mapped = $occurrences->map(fn (OccurrenceData $o) => $this->occurrenceDataToArray($o))->values();
+
+        if ($paginate > 0) {
+            return $this->paginate($mapped, $paginate, $pageName);
+        }
+
+        return $this->output($mapped->take($limit));
     }
 
     /**
@@ -207,6 +219,43 @@ class Calendar extends Tags
     }
 
     /**
+     * Override Statamic's default to skip ->supplement() — our items are plain
+     * arrays built from OccurrenceData, not augmented Entry instances, so the
+     * upstream call would throw.
+     */
+    protected function paginatedOutput($paginator): mixed
+    {
+        $paginator->withQueryString();
+
+        if ($window = $this->params->int('on_each_side')) {
+            $paginator->onEachSide($window);
+        }
+
+        $as = $this->getPaginationResultsKey();
+        $items = $paginator->getCollection();
+
+        return array_merge([
+            $as => $items,
+            'paginate' => $this->getPaginationData($paginator),
+        ], $this->extraOutput($items));
+    }
+
+    private function paginate(\Illuminate\Support\Collection $items, int $perPage, string $pageName): mixed
+    {
+        $page = (int) request()->input($pageName, 1);
+
+        $paginator = new LengthAwarePaginator(
+            $items->forPage($page, $perPage),
+            $items->count(),
+            $perPage,
+            $page,
+            ['path' => request()->url(), 'pageName' => $pageName]
+        );
+
+        return $this->output($paginator);
+    }
+
+    /**
      * @return array{0: Carbon, 1: Carbon}
      */
     private function monthGridBoundaries(Carbon $month, int $weekStartsOn, bool $fixedRows = false): array
@@ -274,7 +323,7 @@ class Calendar extends Tags
         return $labels;
     }
 
-    private function indexFromCache(Carbon $from, ?Carbon $to, ?int $limit, $tags, string $sort = 'asc'): array
+    private function indexFromCache(Carbon $from, ?Carbon $to, ?int $limit, $tags, string $sort = 'asc', int $paginate = 0, string $pageName = 'page'): mixed
     {
         $occurrences = Occurrences::all()
             ->filter(fn (OccurrenceData $o) => $o->start->gte($from))
@@ -291,11 +340,17 @@ class Calendar extends Tags
             ? $occurrences->sortByDesc(fn (OccurrenceData $o) => $o->start)
             : $occurrences->sortBy(fn (OccurrenceData $o) => $o->start);
 
-        if ($limit) {
-            $occurrences = $occurrences->take($limit);
+        $mapped = $occurrences->map(fn (OccurrenceData $o) => $this->occurrenceDataToArray($o))->values();
+
+        if ($paginate > 0) {
+            return $this->paginate($mapped, $paginate, $pageName);
         }
 
-        return $occurrences->map(fn (OccurrenceData $o) => $this->occurrenceDataToArray($o))->values()->all();
+        if ($limit) {
+            $mapped = $mapped->take($limit);
+        }
+
+        return $this->output($mapped);
     }
 
     /**
@@ -328,7 +383,17 @@ class Calendar extends Tags
             ->all();
     }
 
-    private function indexFromResolver(string $collection, Carbon $from, ?Carbon $to, ?int $limit, $tags, string $sort = 'asc'): array
+    /**
+     * Live-resolve path for custom collections (not the cache).
+     *
+     * With `paginate`, every matched entry's occurrences are resolved into memory
+     * before slicing. The resolver defaults to a 1-year window when no `to` is
+     * supplied (see OccurrenceResolver::resolveRecurringDate), so this is bounded,
+     * not unbounded — but for calendars with many long-running recurring entries,
+     * pass an explicit `to` to shrink the working set, or use the cached default
+     * collection.
+     */
+    private function indexFromResolver(string $collection, Carbon $from, ?Carbon $to, ?int $limit, $tags, string $sort = 'asc', int $paginate = 0, string $pageName = 'page'): mixed
     {
         $query = Entry::query()->where('collection', $collection);
 
@@ -348,8 +413,10 @@ class Calendar extends Tags
 
         $allOccurrences = collect();
 
+        $resolverLimit = $paginate > 0 ? null : $limit;
+
         foreach ($entries as $entry) {
-            $occurrences = $this->resolver->resolve($entry, $from, $to, $limit);
+            $occurrences = $this->resolver->resolve($entry, $from, $to, $resolverLimit);
             $allOccurrences = $allOccurrences->merge($occurrences);
         }
 
@@ -357,11 +424,17 @@ class Calendar extends Tags
             ? $allOccurrences->sortByDesc(fn (Occurrence $o) => $o->start)
             : $allOccurrences->sortBy(fn (Occurrence $o) => $o->start);
 
-        if ($limit) {
-            $allOccurrences = $allOccurrences->take($limit);
+        $mapped = $allOccurrences->map(fn (Occurrence $o) => $this->occurrenceToArray($o))->values();
+
+        if ($paginate > 0) {
+            return $this->paginate($mapped, $paginate, $pageName);
         }
 
-        return $allOccurrences->map(fn (Occurrence $o) => $this->occurrenceToArray($o))->values()->all();
+        if ($limit) {
+            $mapped = $mapped->take($limit);
+        }
+
+        return $this->output($mapped);
     }
 
     private function getContextStart(): ?Carbon
