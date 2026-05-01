@@ -12,8 +12,34 @@ use Carbon\Carbon;
 readonly class OccurrenceData
 {
     /**
+     * Keys managed by the DTO itself. Anything else on a stored payload
+     * lands in `$extra` on rehydration.
+     */
+    private const RESERVED_KEYS = [
+        'id',
+        'entry_id',
+        'title',
+        'slug',
+        'teaser',
+        'organizer_id',
+        'organizer_slug',
+        'organizer_title',
+        'organizer_url',
+        'tags',
+        'start',
+        'end',
+        'is_all_day',
+        'is_recurring',
+        'recurrence_description',
+        'url',
+    ];
+
+    /**
      * @param  string|null  $teaser  Short description for listing views
      * @param  array<string>  $tags  Tag slugs for filtering
+     * @param  array<string, mixed>  $extra  Extra fields contributed by `OccurrenceBuilding`
+     *                                       listeners at cache build time. Splatted onto `toArray()`
+     *                                       so they surface in API and tag output.
      */
     public function __construct(
         public string $id,
@@ -32,6 +58,7 @@ readonly class OccurrenceData
         public bool $isRecurring,
         public ?string $recurrenceDescription,
         public string $url,
+        public array $extra = [],
     ) {}
 
     /**
@@ -45,6 +72,8 @@ readonly class OccurrenceData
 
     public static function fromArray(array $data): self
     {
+        $extra = array_diff_key($data, array_flip(self::RESERVED_KEYS));
+
         return new self(
             id: (string) $data['id'],
             entryId: (string) $data['entry_id'],
@@ -62,12 +91,15 @@ readonly class OccurrenceData
             isRecurring: (bool) $data['is_recurring'],
             recurrenceDescription: $data['recurrence_description'] ?? null,
             url: $data['url'],
+            extra: $extra,
         );
     }
 
     public function toArray(): array
     {
+        // Reserved keys last: collisions from $extra get silently shadowed.
         return [
+            ...$this->extra,
             'id' => $this->id,
             'entry_id' => $this->entryId,
             'title' => $this->title,
