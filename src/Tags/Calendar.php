@@ -76,7 +76,7 @@ class Calendar extends Tags
         }
 
         return $this->parse([
-            'occurrence_id' => $entry->id().'-'.$occurrence->start->format('Y-m-d-His'),
+            'occurrence_id' => OccurrenceData::composeId($entry->id(), $occurrence->start),
             'start' => $occurrence->start,
             'end' => $occurrence->end,
             'is_all_day' => $occurrence->isAllDay,
@@ -123,14 +123,22 @@ class Calendar extends Tags
     /**
      * Returns the .ics download URL for a single occurrence.
      *
-     * Usage: {{ calendar:ics_download_url :occurrence_id="id" }}
+     * Usage (inside `{{ calendar }}` or `{{ calendar:current_occurrence }}`):
+     *   {{ calendar:ics_download_url }}
      *
-     * The occurrence ID follows the format "{entry_id}-{Y-m-d-His}",
-     * which is available as `id` in any `{{ calendar }}` loop.
+     * Or explicit:
+     *   {{ calendar:ics_download_url :occurrence_id="occurrence_id" }}
+     *
+     * The occurrence ID follows the format "{entry_id}-{Y-m-d-His}" and is
+     * exposed as `occurrence_id` in loop items and current_occurrence context.
      */
     public function icsDownloadUrl(): string
     {
-        $id = (string) ($this->params->get('occurrence_id') ?? $this->context->get('id'));
+        $id = (string) (
+            $this->params->get('occurrence_id')
+            ?? $this->context->get('occurrence_id')
+            ?? $this->context->get('id')
+        );
 
         return URL::route('statamic-calendar.ics.download', $id);
     }
@@ -451,6 +459,7 @@ class Calendar extends Tags
         $augmented = $occurrence->entry->toAugmentedArray();
 
         return array_merge($augmented, [
+            'occurrence_id' => OccurrenceData::composeId($occurrence->entry->id(), $occurrence->start),
             'start' => $occurrence->start,
             'end' => $occurrence->end,
             'is_all_day' => $occurrence->isAllDay,
@@ -462,8 +471,11 @@ class Calendar extends Tags
 
     private function occurrenceDataToArray(OccurrenceData $occurrence): array
     {
+        // Reserved keys last: extras from OccurrenceBuilding listeners can't shadow core tag fields.
         return [
+            ...$occurrence->extra,
             'id' => $occurrence->entryId,
+            'occurrence_id' => $occurrence->id,
             'title' => $occurrence->title,
             'slug' => $occurrence->slug,
             'teaser' => $occurrence->teaser,

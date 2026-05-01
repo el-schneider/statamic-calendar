@@ -118,6 +118,12 @@ return [
     |
     | GET /{route}?from=2026-01-01&to=2026-01-31&limit=50&sort=asc&tags=music,art&organizer={id}
     |
+    | To enrich occurrences with extra fields (image, category, anything
+    | derived from the entry or resolved occurrence), listen to the
+    | OccurrenceBuilding event. It fires once per occurrence at cache rebuild
+    | — zero runtime cost on API reads. Recipe in the event's class docblock:
+    | ElSchneider\StatamicCalendar\Events\OccurrenceBuilding
+    |
     */
 
     'api' => [

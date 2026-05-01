@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace ElSchneider\StatamicCalendar\Occurrences;
 
 use Carbon\Carbon;
+use ElSchneider\StatamicCalendar\Events\OccurrenceBuilding;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Str;
 use Statamic\Facades\Entry;
 
@@ -128,8 +130,8 @@ class OccurrenceCache
             $organizerData = $this->extractOrganizerData($entry);
 
             foreach ($eventOccurrences as $occurrence) {
-                $occurrences->push([
-                    'id' => $entryId.'-'.$occurrence->start->format('Y-m-d-His'),
+                $payload = [
+                    'id' => OccurrenceData::composeId($entryId, $occurrence->start),
                     'entry_id' => $entryId,
                     'title' => (string) $entry->get('title'),
                     'slug' => $entry->slug(),
@@ -145,6 +147,14 @@ class OccurrenceCache
                     'is_recurring' => $occurrence->isRecurring,
                     'recurrence_description' => $occurrence->recurrenceDescription,
                     'url' => $occurrence->url(),
+                ];
+
+                $event = new OccurrenceBuilding($entry, $occurrence);
+                Event::dispatch($event);
+
+                $occurrences->push([
+                    ...$event->extra,
+                    ...$payload, // Core fields win on collisions.
                 ]);
             }
         }

@@ -12,6 +12,7 @@ Recurring events and cached occurrences for Statamic. Works with Statamic 5 and 
 - Month calendar view — server-rendered, navigable via query params, no JS required
 - JSON REST API for JS-based calendar components (opt-in)
 - iCalendar (.ics) feed for calendar app subscriptions + per-event "Add to calendar" downloads
+- Cache-build event for adding custom occurrence fields to tag/API output
 - Two URL strategies: query string (default, Statamic-native) or date segments
 - Example templates for index (list, archive, calendar grid) and show pages
 
@@ -121,7 +122,7 @@ The addon exposes an .ics feed that calendar apps (Apple Calendar, Google Calend
 
 {{-- Per-event download inside a calendar loop --}}
 {{ calendar from="now" limit="10" }}
-  <a href="{{ calendar:ics_download_url :occurrence_id="id" }}">
+  <a href="{{ calendar:ics_download_url }}">
     Add to calendar
   </a>
 {{ /calendar }}
@@ -207,6 +208,10 @@ fetch('/api/calendar/occurrences?tags=music,art&organizer=org-123')
 ### CORS
 
 The API uses Laravel's `api` middleware group, so cross-origin requests are handled by your app's `config/cors.php`. Laravel's default config already allows `api/*` paths from all origins — adjust as needed.
+
+## Custom Occurrence Fields
+
+Need images, categories, or occurrence-specific flags in API/tag output? Listen to `ElSchneider\StatamicCalendar\Events\OccurrenceBuilding`. It runs once per materialized occurrence during cache rebuild, with access to both the source entry and resolved occurrence. See `config/statamic-calendar.php` and the event class docblock for the full recipe.
 
 ## Setting Up Templates
 
@@ -329,13 +334,13 @@ Returns the .ics download URL for a single occurrence. Use inside any `{{ calend
 ```antlers
 {{ calendar from="now" limit="10" }}
   <h2>{{ title }}</h2>
-  <a href="{{ calendar:ics_download_url :occurrence_id="id" }}">Add to calendar</a>
+  <a href="{{ calendar:ics_download_url }}">Add to calendar</a>
 {{ /calendar }}
 ```
 
-| Parameter      | Description  | Default              |
-| -------------- | ------------ | -------------------- |
-| `occurrence_id` | Occurrence ID (`{entry_id}-{Y-m-d-His}`) | current context `id` |
+| Parameter       | Description                                | Default                                  |
+| --------------- | ------------------------------------------ | ---------------------------------------- |
+| `occurrence_id` | Occurrence ID (`{entry_id}-{Y-m-d-His}`)   | context `occurrence_id`, else `id`       |
 
 ### `{{ calendar:for_organizer }}`
 
