@@ -12,24 +12,7 @@ beforeEach(function () {
     Carbon::setTestNow('2026-02-01 00:00:00');
 
     $this->tagOccurrences = collect([
-        OccurrenceData::fromArray([
-            'id' => 'aaa-2026-02-05-100000',
-            'entry_id' => 'aaa',
-            'title' => 'Event A',
-            'slug' => 'event-a',
-            'teaser' => null,
-            'organizer_id' => null,
-            'organizer_slug' => null,
-            'organizer_title' => null,
-            'organizer_url' => null,
-            'tags' => [],
-            'start' => '2026-02-05T10:00:00+00:00',
-            'end' => '2026-02-05T11:00:00+00:00',
-            'is_all_day' => false,
-            'is_recurring' => false,
-            'recurrence_description' => null,
-            'url' => '/events/event-a',
-        ]),
+        calendarTagOccurrence(),
     ]);
 
     $mock = Mockery::mock(OccurrenceCache::class);
@@ -54,6 +37,28 @@ function calendarTag(array $params = [], array $context = []): Calendar
     return $tag;
 }
 
+function calendarTagOccurrence(array $overrides = []): OccurrenceData
+{
+    return OccurrenceData::fromArray(array_merge([
+        'id' => 'aaa-2026-02-05-100000',
+        'entry_id' => 'aaa',
+        'title' => 'Event A',
+        'slug' => 'event-a',
+        'teaser' => null,
+        'organizer_id' => null,
+        'organizer_slug' => null,
+        'organizer_title' => null,
+        'organizer_url' => null,
+        'tags' => [],
+        'start' => '2026-02-05T10:00:00+00:00',
+        'end' => '2026-02-05T11:00:00+00:00',
+        'is_all_day' => false,
+        'is_recurring' => false,
+        'recurrence_description' => null,
+        'url' => '/events/event-a',
+    ], $overrides));
+}
+
 test('loop items expose composed occurrence_id alongside entry id', function () {
     $result = calendarTag(['from' => '2026-02-01'])->index();
 
@@ -70,6 +75,24 @@ test('ics_download_url uses context occurrence_id when present', function () {
     );
 
     expect($tag->icsDownloadUrl())->toContain('aaa-2026-02-05-100000');
+});
+
+test('loop items surface extras contributed by OccurrenceBuilding listeners', function () {
+    $this->tagOccurrences = collect([
+        calendarTagOccurrence([
+            'image' => ['url' => '/assets/a.jpg'],
+            'category' => 'music',
+        ]),
+    ]);
+    $mock = Mockery::mock(OccurrenceCache::class);
+    $mock->shouldReceive('all')->andReturn($this->tagOccurrences);
+    $this->app->instance(OccurrenceCache::class, $mock);
+
+    $item = collect(calendarTag(['from' => '2026-02-01'])->index())->first();
+
+    expect($item['image'])->toBe(['url' => '/assets/a.jpg'])
+        ->and($item['category'])->toBe('music')
+        ->and($item['title'])->toBe('Event A');
 });
 
 test('ics_download_url falls back to context id when occurrence_id absent', function () {

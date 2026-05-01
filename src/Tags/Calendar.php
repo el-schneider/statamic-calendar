@@ -398,7 +398,9 @@ class Calendar extends Tags
 
     private function occurrenceDataToArray(OccurrenceData $occurrence): array
     {
+        // Reserved keys last: extras from OccurrenceBuilding listeners can't shadow core tag fields.
         return [
+            ...$occurrence->extra,
             'id' => $occurrence->entryId,
             'occurrence_id' => $occurrence->id,
             'title' => $occurrence->title,
