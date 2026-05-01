@@ -22,6 +22,7 @@ test('rebuild persists OccurrenceBuilding extras without letting them shadow cor
     Event::listen(OccurrenceBuilding::class, function (OccurrenceBuilding $e) {
         $e->extra['image'] = ['url' => '/assets/foo.jpg'];
         $e->extra['category'] = $e->entry->slug();
+        $e->extra['occurrence_date'] = $e->occurrence->start->toDateString();
         $e->extra['title'] = 'Shadowed title';
     });
 
@@ -53,5 +54,6 @@ test('rebuild persists OccurrenceBuilding extras without letting them shadow cor
         ->and($occurrence->extra)->toBe([
             'image' => ['url' => '/assets/foo.jpg'],
             'category' => 'demo-event',
+            'occurrence_date' => '2026-03-10',
         ]);
 });

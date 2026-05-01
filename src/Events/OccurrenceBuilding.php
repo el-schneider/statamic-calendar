@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace ElSchneider\StatamicCalendar\Events;
 
+use ElSchneider\StatamicCalendar\Occurrences\Occurrence;
 use Statamic\Contracts\Entries\Entry;
 
 /**
@@ -12,7 +13,7 @@ use Statamic\Contracts\Entries\Entry;
  * on `OccurrenceData` and in API / tag output.
  *
  * Runs at cache build time only — zero cost on reads. Results are frozen
- * until the next rebuild; depend on entry data, not request context.
+ * until the next rebuild; depend on entry and occurrence data, not request context.
  *
  * Extra values must stay JSON-serializable (scalars, arrays, Arrayable).
  * Core occurrence fields always win on name collisions.
@@ -25,6 +26,7 @@ use Statamic\Contracts\Entries\Entry;
  *     Event::listen(OccurrenceBuilding::class, function (OccurrenceBuilding $e) {
  *         $e->extra['image'] = $e->entry->augmentedValue('image')->shallow()->value();
  *         $e->extra['category'] = $e->entry->get('category');
+ *         $e->extra['occurrence_date'] = $e->occurrence->start->toDateString();
  *     });
  */
 final class OccurrenceBuilding
@@ -34,6 +36,7 @@ final class OccurrenceBuilding
      */
     public function __construct(
         public readonly Entry $entry,
+        public readonly Occurrence $occurrence,
         public array $extra = [],
     ) {}
 }

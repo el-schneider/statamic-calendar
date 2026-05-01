@@ -149,7 +149,7 @@ class OccurrenceCache
                     'url' => $occurrence->url(),
                 ];
 
-                $event = new OccurrenceBuilding($entry);
+                $event = new OccurrenceBuilding($entry, $occurrence);
                 Event::dispatch($event);
 
                 $occurrences->push([
