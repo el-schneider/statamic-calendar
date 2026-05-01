@@ -6,6 +6,7 @@ use Carbon\Carbon;
 use ElSchneider\StatamicCalendar\Occurrences\OccurrenceCache;
 use ElSchneider\StatamicCalendar\Occurrences\OccurrenceData;
 use ElSchneider\StatamicCalendar\Tags\Calendar;
+use Illuminate\Support\Collection;
 use Statamic\Contracts\View\Antlers\Parser;
 
 beforeEach(function () {
@@ -102,7 +103,7 @@ function paginationTagOccurrence(array $overrides = []): OccurrenceData
 test('index returns all items without paginate param', function () {
     $result = paginationCalendarTag(['from' => '2026-02-01'])->index();
 
-    expect($result)->toBeArray()->toHaveCount(4);
+    expect($result)->toBeInstanceOf(Collection::class)->toHaveCount(4);
 
     $titles = collect($result)->pluck('title')->all();
     expect($titles)->toBe(['Event A', 'Event B', 'Event C', 'Event D']);
@@ -114,18 +115,19 @@ test('index supports as param without pagination', function () {
     expect($result)->toHaveKey('events');
     expect($result)->toHaveKey('total_results');
     expect($result)->toHaveKey('no_results');
+    expect($result['events'])->toBeInstanceOf(Collection::class);
     expect($result['total_results'])->toBe(4);
     expect($result['no_results'])->toBeFalse();
 });
 
 test('index paginates when paginate param is set', function () {
-    $result = paginationCalendarTag(['from' => '2026-02-01', 'paginate' => '2', 'as' => 'items'])->index();
+    $result = paginationCalendarTag(['from' => '2026-02-01', 'paginate' => '2'])->index();
 
-    expect($result)->toHaveKey('items');
+    expect($result)->toHaveKey('occurrences');
     expect($result)->toHaveKey('paginate');
-    expect($result['items'])->toHaveCount(2);
+    expect($result['occurrences'])->toHaveCount(2);
 
-    $titles = $result['items']->pluck('title')->all();
+    $titles = $result['occurrences']->pluck('title')->all();
     expect($titles)->toBe(['Event A', 'Event B']);
     expect($result['paginate']['total_items'])->toBe(4);
     expect($result['paginate']['total_pages'])->toBe(2);

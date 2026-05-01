@@ -289,7 +289,7 @@ Lists occurrences from the cache (or resolves them live for non-default collecti
 | `limit`      | Max occurrences (ignored when paginating) | —            |
 | `paginate`   | Items per page           | —            |
 | `page_name`  | Query string page key    | `page`       |
-| `as`         | Results variable name when using pagination or grouped output | `results` |
+| `as`         | Results variable name when using pagination or grouped output | `occurrences` |
 | `collection` | Collection handle        | config value |
 | `tags`       | Filter by taxonomy terms | —            |
 
@@ -362,7 +362,7 @@ Lists upcoming occurrences for an organizer (from cache).
 | `limit`     | Max occurrences (ignored when paginating) | `5` |
 | `paginate`  | Items per page     | —                    |
 | `page_name` | Query string page key | `page`             |
-| `as`        | Results variable name when using pagination or grouped output | `results` |
+| `as`        | Results variable name when using pagination or grouped output | `occurrences` |
 
 ## Configuration
 
