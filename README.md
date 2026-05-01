@@ -13,6 +13,7 @@ Recurring events and cached occurrences for Statamic. Works with Statamic 5 and 
 - JSON REST API for JS-based calendar components (opt-in)
 - iCalendar (.ics) feed for calendar app subscriptions + per-event "Add to calendar" downloads
 - Cache-build event for adding custom occurrence fields to tag/API output
+- Pagination for REST API responses and Antlers occurrence lists
 - Two URL strategies: query string (default, Statamic-native) or date segments
 - Example templates for index (list, archive, calendar grid) and show pages
 
@@ -146,6 +147,7 @@ STATAMIC_CALENDAR_API_ENABLED=true
     'enabled' => env('STATAMIC_CALENDAR_API_ENABLED', false),
     'route' => env('STATAMIC_CALENDAR_API_ROUTE', 'api/calendar/occurrences'),
     'middleware' => env('STATAMIC_CALENDAR_API_MIDDLEWARE', 'api'),
+    'max_per_page' => 100,
 ],
 ```
 
@@ -157,7 +159,9 @@ STATAMIC_CALENDAR_API_ENABLED=true
 | ----------- | -------- | ------------------------------- | ------- |
 | `from`      | `date`   | Start date (ISO 8601 or `Y-m-d`) | now     |
 | `to`        | `date`   | End date                        | —       |
-| `limit`     | `int`    | Max occurrences                 | —       |
+| `limit`     | `int`    | Max occurrences (ignored when paginating) | —       |
+| `page`      | `int`    | Page number; enables pagination | —       |
+| `per_page`  | `int`    | Items per page; also enables pagination | `15`    |
 | `sort`      | `string` | `asc` or `desc`                 | `asc`   |
 | `tags`      | `string` | Comma-separated tag slugs       | —       |
 | `organizer` | `string` | Organizer entry ID              | —       |
@@ -200,6 +204,9 @@ fetch('/api/calendar/occurrences?from=2026-03-02&to=2026-03-08')
 
 // Next 5 upcoming
 fetch('/api/calendar/occurrences?limit=5')
+
+// Paginated archive
+fetch('/api/calendar/occurrences?from=2026-01-01&page=2&per_page=25')
 
 // Filtered by tag and organizer
 fetch('/api/calendar/occurrences?tags=music,art&organizer=org-123')
@@ -279,7 +286,10 @@ Lists occurrences from the cache (or resolves them live for non-default collecti
 | ------------ | ------------------------ | ------------ |
 | `from`       | Start date               | `now`        |
 | `to`         | End date                 | —            |
-| `limit`      | Max occurrences          | —            |
+| `limit`      | Max occurrences (ignored when paginating) | —            |
+| `paginate`   | Items per page           | —            |
+| `page_name`  | Query string page key    | `page`       |
+| `as`         | Results variable name when using pagination or grouped output | `results` |
 | `collection` | Collection handle        | config value |
 | `tags`       | Filter by taxonomy terms | —            |
 
@@ -349,7 +359,10 @@ Lists upcoming occurrences for an organizer (from cache).
 | Parameter   | Description        | Default              |
 | ----------- | ------------------ | -------------------- |
 | `organizer` | Organizer entry ID | current context `id` |
-| `limit`     | Max occurrences    | `5`                  |
+| `limit`     | Max occurrences (ignored when paginating) | `5` |
+| `paginate`  | Items per page     | —                    |
+| `page_name` | Query string page key | `page`             |
+| `as`        | Results variable name when using pagination or grouped output | `results` |
 
 ## Configuration
 
@@ -365,6 +378,7 @@ Key options in `config/statamic-calendar.php`:
 | `api.enabled`              | Enable JSON REST API              | `false`                         |
 | `api.route`                | API route path                    | `api/calendar/occurrences`      |
 | `api.middleware`           | Middleware group                  | `api`                           |
+| `api.max_per_page`         | Max API pagination page size      | `100`                           |
 | `ics.enabled`              | Enable .ics feed routes           | `true`                          |
 | `ics.feed_url`             | Feed URL path                     | `/calendar.ics`                 |
 | `ics.calendar_name`        | Calendar name in .ics output      | `APP_NAME`                      |

@@ -9,6 +9,7 @@ use ElSchneider\StatamicCalendar\Facades\Occurrences;
 use ElSchneider\StatamicCalendar\Occurrences\Occurrence;
 use ElSchneider\StatamicCalendar\Occurrences\OccurrenceData;
 use ElSchneider\StatamicCalendar\Occurrences\OccurrenceResolver;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\URL;
 use Statamic\Contracts\Taxonomies\Term;
 use Statamic\Extensions\Pagination\LengthAwarePaginator;
@@ -107,7 +108,7 @@ class Calendar extends Tags
             return $this->paginate($mapped, $paginate, $pageName);
         }
 
-        return $this->output($mapped->take($limit));
+        return $this->outputItems($mapped->take($limit));
     }
 
     /**
@@ -240,9 +241,18 @@ class Calendar extends Tags
         ], $this->extraOutput($items));
     }
 
-    private function paginate(\Illuminate\Support\Collection $items, int $perPage, string $pageName): mixed
+    private function outputItems(Collection $items): mixed
     {
-        $page = (int) request()->input($pageName, 1);
+        if ($this->params->get('as')) {
+            return $this->output($items->values());
+        }
+
+        return $items->values()->all();
+    }
+
+    private function paginate(Collection $items, int $perPage, string $pageName): mixed
+    {
+        $page = max(1, (int) request()->input($pageName, 1));
 
         $paginator = new LengthAwarePaginator(
             $items->forPage($page, $perPage),
@@ -350,7 +360,7 @@ class Calendar extends Tags
             $mapped = $mapped->take($limit);
         }
 
-        return $this->output($mapped);
+        return $this->outputItems($mapped);
     }
 
     /**
@@ -434,7 +444,7 @@ class Calendar extends Tags
             $mapped = $mapped->take($limit);
         }
 
-        return $this->output($mapped);
+        return $this->outputItems($mapped);
     }
 
     private function getContextStart(): ?Carbon

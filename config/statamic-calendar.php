@@ -118,6 +118,9 @@ return [
     |
     | GET /{route}?from=2026-01-01&to=2026-01-31&limit=50&sort=asc&tags=music,art&organizer={id}
     |
+    | Add page/per_page to receive Laravel's standard LengthAwarePaginator
+    | JSON shape. per_page is capped by api.max_per_page.
+    |
     | To enrich occurrences with extra fields (image, category, anything
     | derived from the entry or resolved occurrence), listen to the
     | OccurrenceBuilding event. It fires once per occurrence at cache rebuild

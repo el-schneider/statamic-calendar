@@ -12,7 +12,7 @@ beforeEach(function () {
     Carbon::setTestNow('2026-02-01 00:00:00');
 
     $this->tagOccurrences = collect([
-        makeTagOccurrence([
+        paginationTagOccurrence([
             'id' => 'aaa-2026-02-05-100000',
             'entry_id' => 'aaa',
             'title' => 'Event A',
@@ -21,7 +21,7 @@ beforeEach(function () {
             'start' => '2026-02-05T10:00:00+00:00',
             'end' => '2026-02-05T11:00:00+00:00',
         ]),
-        makeTagOccurrence([
+        paginationTagOccurrence([
             'id' => 'bbb-2026-02-10-100000',
             'entry_id' => 'bbb',
             'title' => 'Event B',
@@ -30,7 +30,7 @@ beforeEach(function () {
             'start' => '2026-02-10T10:00:00+00:00',
             'end' => '2026-02-10T11:00:00+00:00',
         ]),
-        makeTagOccurrence([
+        paginationTagOccurrence([
             'id' => 'ccc-2026-02-15-100000',
             'entry_id' => 'ccc',
             'title' => 'Event C',
@@ -39,7 +39,7 @@ beforeEach(function () {
             'start' => '2026-02-15T10:00:00+00:00',
             'end' => '2026-02-15T11:00:00+00:00',
         ]),
-        makeTagOccurrence([
+        paginationTagOccurrence([
             'id' => 'ddd-2026-02-20-100000',
             'entry_id' => 'ddd',
             'title' => 'Event D',
@@ -62,7 +62,7 @@ beforeEach(function () {
 
 afterEach(fn () => Carbon::setTestNow());
 
-function calendarTag(array $params = [], string $content = ''): Calendar
+function paginationCalendarTag(array $params = [], string $content = ''): Calendar
 {
     $tag = app(Calendar::class);
     $tag->setProperties([
@@ -77,7 +77,7 @@ function calendarTag(array $params = [], string $content = ''): Calendar
     return $tag;
 }
 
-function makeTagOccurrence(array $overrides = []): OccurrenceData
+function paginationTagOccurrence(array $overrides = []): OccurrenceData
 {
     return OccurrenceData::fromArray(array_merge([
         'id' => 'tag-test-2026-02-01-100000',
@@ -100,16 +100,16 @@ function makeTagOccurrence(array $overrides = []): OccurrenceData
 }
 
 test('index returns all items without paginate param', function () {
-    $result = calendarTag(['from' => '2026-02-01'])->index();
+    $result = paginationCalendarTag(['from' => '2026-02-01'])->index();
 
-    expect($result)->toHaveCount(4);
+    expect($result)->toBeArray()->toHaveCount(4);
 
     $titles = collect($result)->pluck('title')->all();
     expect($titles)->toBe(['Event A', 'Event B', 'Event C', 'Event D']);
 });
 
 test('index supports as param without pagination', function () {
-    $result = calendarTag(['from' => '2026-02-01', 'as' => 'events'])->index();
+    $result = paginationCalendarTag(['from' => '2026-02-01', 'as' => 'events'])->index();
 
     expect($result)->toHaveKey('events');
     expect($result)->toHaveKey('total_results');
@@ -119,7 +119,7 @@ test('index supports as param without pagination', function () {
 });
 
 test('index paginates when paginate param is set', function () {
-    $result = calendarTag(['from' => '2026-02-01', 'paginate' => '2', 'as' => 'items'])->index();
+    $result = paginationCalendarTag(['from' => '2026-02-01', 'paginate' => '2', 'as' => 'items'])->index();
 
     expect($result)->toHaveKey('items');
     expect($result)->toHaveKey('paginate');
@@ -134,15 +134,25 @@ test('index paginates when paginate param is set', function () {
 test('index pagination respects page query param', function () {
     request()->merge(['page' => 2]);
 
-    $result = calendarTag(['from' => '2026-02-01', 'paginate' => '2', 'as' => 'items'])->index();
+    $result = paginationCalendarTag(['from' => '2026-02-01', 'paginate' => '2', 'as' => 'items'])->index();
 
     $titles = $result['items']->pluck('title')->all();
     expect($titles)->toBe(['Event C', 'Event D']);
     expect($result['paginate']['total_items'])->toBe(4);
 });
 
+test('index pagination clamps invalid page to first page', function () {
+    request()->merge(['page' => -1]);
+
+    $result = paginationCalendarTag(['from' => '2026-02-01', 'paginate' => '2', 'as' => 'items'])->index();
+
+    $titles = $result['items']->pluck('title')->all();
+    expect($titles)->toBe(['Event A', 'Event B']);
+    expect($result['paginate']['current_page'])->toBe(1);
+});
+
 test('for_organizer paginates', function () {
-    $tag = calendarTag(['organizer' => 'org-1', 'from' => '2026-02-01', 'paginate' => '1', 'as' => 'items']);
+    $tag = paginationCalendarTag(['organizer' => 'org-1', 'from' => '2026-02-01', 'paginate' => '1', 'as' => 'items']);
     $result = $tag->forOrganizer();
 
     expect($result)->toHaveKey('items');
