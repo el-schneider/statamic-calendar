@@ -176,3 +176,77 @@ test('returns 404 when api is disabled', function () {
     $this->getJson('/api/calendar/occurrences-that-does-not-exist')
         ->assertNotFound();
 });
+
+// --- Pagination ---
+
+test('paginates with page and per_page params', function () {
+    $this->getJson('/api/calendar/occurrences?from=2026-02-01&page=1&per_page=2')
+        ->assertOk()
+        ->assertJsonCount(2, 'data')
+        ->assertJsonPath('total', 4)
+        ->assertJsonPath('current_page', 1)
+        ->assertJsonPath('last_page', 2);
+});
+
+test('returns second page', function () {
+    $response = $this->getJson('/api/calendar/occurrences?from=2026-02-01&page=2&per_page=2')
+        ->assertOk()
+        ->assertJsonCount(2, 'data');
+
+    // Sorted asc: Past Event (02-15), Yoga Class (03-05), Laravel Meetup (03-10), Art Workshop (03-20)
+    // Page 2 = items 3 and 4
+    $response->assertJsonPath('data.0.title', 'Laravel Meetup');
+});
+
+test('caps per_page at max_per_page config', function () {
+    config(['statamic-calendar.api.max_per_page' => 2]);
+
+    $this->getJson('/api/calendar/occurrences?from=2026-02-01&page=1&per_page=999')
+        ->assertOk()
+        ->assertJsonPath('per_page', 2);
+});
+
+test('returns unpaginated response when page param absent', function () {
+    $response = $this->getJson('/api/calendar/occurrences?from=2026-02-01')
+        ->assertOk();
+
+    $data = $response->json();
+    expect($data)->toHaveKey('data');
+    expect($data)->not->toHaveKey('total');
+});
+
+test('combines pagination with filters', function () {
+    $this->getJson('/api/calendar/occurrences?tags=wellness&page=1&per_page=1')
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('total', 2);
+});
+
+test('per_page=0 does not error and falls back to 1 per page', function () {
+    $this->getJson('/api/calendar/occurrences?from=2026-02-01&page=1&per_page=0')
+        ->assertOk()
+        ->assertJsonPath('per_page', 1);
+});
+
+test('negative per_page does not error and falls back to 1 per page', function () {
+    $this->getJson('/api/calendar/occurrences?from=2026-02-01&page=1&per_page=-5')
+        ->assertOk()
+        ->assertJsonPath('per_page', 1);
+});
+
+test('per_page without page activates pagination', function () {
+    $this->getJson('/api/calendar/occurrences?from=2026-02-01&per_page=2')
+        ->assertOk()
+        ->assertJsonCount(2, 'data')
+        ->assertJsonPath('current_page', 1)
+        ->assertJsonPath('per_page', 2)
+        ->assertJsonPath('total', 4);
+});
+
+test('max_per_page misconfigured to 0 does not error and clamps to 1', function () {
+    config(['statamic-calendar.api.max_per_page' => 0]);
+
+    $this->getJson('/api/calendar/occurrences?from=2026-02-01&page=1&per_page=15')
+        ->assertOk()
+        ->assertJsonPath('per_page', 1);
+});
