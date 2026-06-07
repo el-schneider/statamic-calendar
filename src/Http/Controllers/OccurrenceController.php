@@ -26,7 +26,7 @@ class OccurrenceController
             ->where('slug', $slug)
             ->first();
 
-        if (! $entry) {
+        if (! $entry || ! $entry->published()) {
             abort(404);
         }
 

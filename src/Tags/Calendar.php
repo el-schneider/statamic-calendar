@@ -66,7 +66,7 @@ class Calendar extends Tags
 
         $entry = (is_string($entryId) || is_int($entryId)) ? Entry::find((string) $entryId) : null;
 
-        if (! $entry || ! $dateString) {
+        if (! $entry || ! $entry->published() || ! $dateString) {
             return '';
         }
 
@@ -199,7 +199,7 @@ class Calendar extends Tags
         $entryId = $this->params->get('entry') ?? $this->context->get('id');
         $entry = (is_string($entryId) || is_int($entryId)) ? Entry::find((string) $entryId) : null;
 
-        if (! $entry) {
+        if (! $entry || ! $entry->published()) {
             return [];
         }
 
@@ -418,6 +418,10 @@ class Calendar extends Tags
         $resolverLimit = $paginate > 0 ? null : $limit;
 
         foreach ($entries as $entry) {
+            if (! $entry->published()) {
+                continue;
+            }
+
             $occurrences = $this->resolver->resolve($entry, $from, $to, $resolverLimit);
             $allOccurrences = $allOccurrences->merge($occurrences);
         }
