@@ -108,6 +108,10 @@ class OccurrenceCache
         $occurrences = collect();
 
         foreach ($entries as $entry) {
+            if (! $entry->published()) {
+                continue;
+            }
+
             $dates = $entry->get($this->datesField()) ?? [];
 
             if (empty($dates)) {
