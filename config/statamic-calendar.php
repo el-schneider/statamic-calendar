@@ -16,6 +16,25 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Timezone
+    |--------------------------------------------------------------------------
+    |
+    | The timezone events are authored and displayed in. Stored date-field
+    | values are app-timezone instants (Statamic 6); occurrences are resolved
+    | in this timezone so wall-clock times and DST are handled correctly, and
+    | returned Carbons stay in it (matching Statamic's display-timezone
+    | contract). When null, falls back to statamic.system.display_timezone,
+    | then app.timezone, then UTC. Set this to the timezone editors author
+    | entries in (their Control Panel / browser timezone) so the stored
+    | instant maps back to the day they picked. For single-timezone sites,
+    | pin statamic/cp.php default_timezone to the same value.
+    |
+    */
+
+    'timezone' => null,
+
+    /*
+    |--------------------------------------------------------------------------
     | Field Mapping
     |--------------------------------------------------------------------------
     |
