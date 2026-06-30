@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace ElSchneider\StatamicCalendar\Occurrences;
 
 use Carbon\Carbon;
-use DateTime;
 use DateTimeImmutable;
 use DateTimeZone;
 use Illuminate\Support\Collection;
@@ -289,7 +288,7 @@ class OccurrenceResolver
      */
     private function localTime(mixed $value): ?string
     {
-        $value = is_string($value) ? mb_trim($value) : '';
+        $value = is_string($value) ? trim($value) : '';
 
         if (! preg_match('/^([01]?\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/', $value)) {
             return null;

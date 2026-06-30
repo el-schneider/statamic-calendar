@@ -32,7 +32,7 @@ class Occurrence
             return $this->entry->url().$separator.urlencode($param).'='.urlencode($this->start->format($format));
         }
 
-        $prefix = mb_trim((string) $this->cfg('statamic-calendar.url.date_segments.prefix', 'calendar'), '/');
+        $prefix = trim((string) $this->cfg('statamic-calendar.url.date_segments.prefix', 'calendar'), '/');
 
         return sprintf(
             '/%s/%s/%s/%s/%s',
