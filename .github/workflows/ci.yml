@@ -34,12 +34,13 @@ jobs:
       - run: vendor/bin/pint --test
 
   tests:
-    name: Tests – PHP ${{ matrix.php }}
+    name: Tests – PHP ${{ matrix.php }} / Statamic ${{ matrix.statamic }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: true
       matrix:
         php: ['8.3', '8.4']
+        statamic: ['^5.0', '^6.0']
     steps:
       - uses: actions/checkout@v4
 
@@ -48,6 +49,6 @@ jobs:
           php-version: ${{ matrix.php }}
           coverage: none
 
-      - run: composer install --no-interaction
+      - run: composer update --no-interaction --prefer-dist --with "statamic/cms:${{ matrix.statamic }}"
 
       - run: vendor/bin/pest
