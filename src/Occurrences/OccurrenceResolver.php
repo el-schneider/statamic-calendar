@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace ElSchneider\StatamicCalendar\Occurrences;
 
 use Carbon\Carbon;
+use DateTime;
+use DateTimeImmutable;
+use DateTimeZone;
 use Illuminate\Support\Collection;
 use RRule\RRule;
 use RRule\RSet;
@@ -37,8 +40,9 @@ class OccurrenceResolver
 
     public function findOccurrenceOnDate(Entry $entry, Carbon $date): ?Occurrence
     {
-        $startOfDay = $date->copy()->startOfDay();
-        $endOfDay = $date->copy()->endOfDay();
+        $tz = $this->timezone();
+        $startOfDay = $date->copy()->setTimezone($tz)->startOfDay();
+        $endOfDay = $date->copy()->setTimezone($tz)->endOfDay();
 
         $occurrences = $this->resolve(
             entry: $entry,
@@ -46,8 +50,8 @@ class OccurrenceResolver
             to: $endOfDay,
         );
 
-        return $occurrences->first(function (Occurrence $o) use ($date) {
-            return $o->start->isSameDay($date);
+        return $occurrences->first(function (Occurrence $o) use ($date, $tz) {
+            return $o->start->isSameDay($date->copy()->setTimezone($tz));
         });
     }
 
@@ -70,6 +74,12 @@ class OccurrenceResolver
 
         $rruleParams = $this->buildRruleParams($row);
 
+        if ($rruleParams === null) {
+            return collect();
+        }
+
+        $tz = new DateTimeZone($this->timezone());
+
         $rset = new RSet;
         $rset->addRRule($rruleParams);
 
@@ -78,14 +88,16 @@ class OccurrenceResolver
                 continue;
             }
 
-            $exdate = (string) $exclusion['date'];
-            if (! empty($exclusion['time'])) {
-                $exdate .= ' '.(string) $exclusion['time'];
-            } else {
-                $exdate .= ' '.(string) ($row['start_time'] ?? '00:00');
+            $day = $this->localDate($exclusion['date']);
+            if (! $day) {
+                continue;
             }
 
-            $rset->addExDate($exdate);
+            $time = $this->localTime($exclusion['time'] ?? null)
+                ?? $this->localTime($row['start_time'] ?? null)
+                ?? '00:00';
+
+            $rset->addExDate(new DateTimeImmutable($day.' '.$time, $tz));
         }
 
         foreach (($row['additions'] ?? []) as $addition) {
@@ -93,11 +105,14 @@ class OccurrenceResolver
                 continue;
             }
 
-            $rdate = (string) $addition['date'];
-            if (! empty($addition['start_time'])) {
-                $rdate .= ' '.(string) $addition['start_time'];
+            $day = $this->localDate($addition['date']);
+            if (! $day) {
+                continue;
             }
-            $rset->addDate($rdate);
+
+            $time = $this->localTime($addition['start_time'] ?? null) ?? '00:00';
+
+            $rset->addDate(new DateTimeImmutable($day.' '.$time, $tz));
         }
 
         $occurrences = collect();
@@ -147,10 +162,14 @@ class OccurrenceResolver
                 continue;
             }
 
-            $additionDate = Carbon::parse((string) $addition['date']);
-            if (! empty($addition['start_time'])) {
-                $additionDate->setTimeFromTimeString((string) $addition['start_time']);
+            $day = $this->localDate($addition['date']);
+            if (! $day) {
+                continue;
             }
+
+            $time = $this->localTime($addition['start_time'] ?? null) ?? '00:00';
+            $additionDate = Carbon::parse($day.' '.$time, $this->timezone());
+
             if ($additionDate->equalTo($date)) {
                 return $addition['end_time'] ?? null;
             }
@@ -159,15 +178,22 @@ class OccurrenceResolver
         return null;
     }
 
-    private function buildRruleParams(array $row): array
+    private function buildRruleParams(array $row): ?array
     {
-        $frequency = $row['frequency'];
-        $startTime = (string) ($row['start_time'] ?? '00:00');
+        $frequency = $row['frequency'] ?? null;
+        $day = $this->localDate($row['start_date'] ?? null);
+
+        if (! $frequency || ! $day) {
+            return null;
+        }
+
+        $tz = new DateTimeZone($this->timezone());
+        $startTime = $this->localTime($row['start_time'] ?? null) ?? '00:00';
 
         $params = [
             'FREQ' => $frequency,
             'INTERVAL' => $row['interval'] ?? 1,
-            'DTSTART' => $row['start_date'].' '.$startTime,
+            'DTSTART' => new DateTimeImmutable($day.' '.$startTime, $tz),
         ];
 
         if ($frequency === 'WEEKLY' && ! empty($row['weekdays'])) {
@@ -189,7 +215,10 @@ class OccurrenceResolver
             $params['COUNT'] = $row['count'];
         }
         if ($recurrenceEnd === 'until' && ! empty($row['until'])) {
-            $params['UNTIL'] = $row['until'];
+            $untilDay = $this->localDate($row['until']);
+            if ($untilDay) {
+                $params['UNTIL'] = new DateTimeImmutable($untilDay.' 23:59:59', $tz);
+            }
         }
 
         return $params;
@@ -197,8 +226,8 @@ class OccurrenceResolver
 
     private function resolveSingleDate(Entry $entry, array $row, Carbon $from, ?Carbon $to): Collection
     {
-        $start = $this->parseDateTime($row['start_date'] ?? null, $row['start_time'] ?? null);
-        $end = $this->parseDateTime($row['end_date'] ?? null, $row['end_time'] ?? null);
+        $start = $this->localDateTime($row['start_date'] ?? null, $row['start_time'] ?? null);
+        $end = $this->localDateTime($row['end_date'] ?? null, $row['end_time'] ?? null);
 
         if (! $start) {
             return collect();
@@ -219,24 +248,77 @@ class OccurrenceResolver
         ]);
     }
 
-    private function parseDateTime(?string $date, ?string $time): ?Carbon
+    /**
+     * The timezone events are authored and displayed in. Statamic 6 stores
+     * date-field values as app-timezone instants; recurrence and wall-clock
+     * times are computed in this timezone so DST is handled correctly. The
+     * returned Carbons stay in this timezone, matching Statamic's
+     * display-timezone contract (templates localize via modifiers).
+     */
+    private function timezone(): string
     {
-        if (! $date) {
+        return (string) (
+            config('statamic-calendar.timezone')
+            ?: config('statamic.system.display_timezone')
+            ?: config('app.timezone')
+            ?: 'UTC'
+        );
+    }
+
+    /**
+     * Recover the wall-clock calendar day (Y-m-d) the editor picked. Statamic 6
+     * stores date fields as the instant — in the app timezone — of midnight in
+     * the editor's timezone, so we convert back to the event timezone before
+     * reading the day. Tolerates both date-only and datetime stored values.
+     */
+    private function localDate(mixed $value): ?string
+    {
+        if (blank($value)) {
             return null;
         }
 
-        $datetime = Carbon::parse($date);
+        return Carbon::parse((string) $value, config('app.timezone'))
+            ->setTimezone($this->timezone())
+            ->format('Y-m-d');
+    }
 
-        if ($time) {
-            $datetime->setTimeFromTimeString($time);
+    /**
+     * Validate and return an "HH:MM" (optionally "HH:MM:SS") wall-clock time.
+     * Anything blank or malformed returns null so callers fall back to a safe
+     * default instead of letting a bad stored value crash the cache rebuild.
+     */
+    private function localTime(mixed $value): ?string
+    {
+        $value = is_string($value) ? mb_trim($value) : '';
+
+        if (! preg_match('/^([01]?\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/', $value)) {
+            return null;
         }
 
-        return $datetime;
+        return $value;
+    }
+
+    /**
+     * Build a wall-clock Carbon in the event timezone from a stored date value
+     * and an optional "HH:MM" time string.
+     */
+    private function localDateTime(mixed $date, mixed $time): ?Carbon
+    {
+        if (! $day = $this->localDate($date)) {
+            return null;
+        }
+
+        return Carbon::parse($day.' '.($this->localTime($time) ?? '00:00'), $this->timezone());
     }
 
     private function buildRecurrenceDescription(array $row): string
     {
         $rruleParams = $this->buildRruleParams($row);
+
+        if ($rruleParams === null) {
+            return '';
+        }
+
         $rrule = new RRule($rruleParams);
 
         return $rrule->humanReadable([
