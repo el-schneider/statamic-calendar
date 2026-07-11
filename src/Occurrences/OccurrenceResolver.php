@@ -16,7 +16,11 @@ class OccurrenceResolver
 {
     public function resolve(Entry $entry, Carbon $from, ?Carbon $to = null, ?int $limit = null): Collection
     {
-        $dates = $entry->get($this->datesField()) ?? [];
+        $field = $this->datesField();
+        $dates = $entry->hasSupplement($field)
+            ? $entry->getSupplement($field)
+            : $entry->get($field);
+        $dates ??= [];
         $occurrences = collect();
 
         foreach ($dates as $dateRow) {
@@ -35,6 +39,21 @@ class OccurrenceResolver
         }
 
         return $occurrences->values();
+    }
+
+    public function representative(Entry $entry): ?Occurrence
+    {
+        $now = Carbon::now($this->timezone());
+
+        if ($next = $this->resolve($entry, $now, limit: 1)->first()) {
+            return $next;
+        }
+
+        return $this->resolve(
+            $entry,
+            Carbon::create(1, 1, 1, 0, 0, 0, $this->timezone()),
+            $now,
+        )->last();
     }
 
     public function findOccurrenceOnDate(Entry $entry, Carbon $date): ?Occurrence

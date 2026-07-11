@@ -15,6 +15,7 @@ use Statamic\Entries\Entry;
 function entryWithDates(array $rows): Entry
 {
     $entry = Mockery::mock(Entry::class);
+    $entry->shouldReceive('hasSupplement')->with('dates')->andReturnFalse();
     $entry->shouldReceive('get')->with('dates')->andReturn($rows);
 
     return $entry;

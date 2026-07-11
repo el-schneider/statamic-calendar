@@ -19,7 +19,7 @@ class Occurrence
         public readonly ?string $recurrenceDescription = null,
     ) {}
 
-    public function url(): string
+    public function url(?string $entryUrl = null): string
     {
         $strategy = (string) $this->cfg('statamic-calendar.url.strategy', 'date_segments');
 
@@ -27,9 +27,10 @@ class Occurrence
             $param = (string) $this->cfg('statamic-calendar.url.query_string.param', 'date');
             $format = (string) $this->cfg('statamic-calendar.url.query_string.format', 'Y-m-d');
 
-            $separator = str_contains($this->entry->url(), '?') ? '&' : '?';
+            $entryUrl ??= $this->entry->url();
+            $separator = str_contains($entryUrl, '?') ? '&' : '?';
 
-            return $this->entry->url().$separator.urlencode($param).'='.urlencode($this->start->format($format));
+            return $entryUrl.$separator.urlencode($param).'='.urlencode($this->start->format($format));
         }
 
         $prefix = trim((string) $this->cfg('statamic-calendar.url.date_segments.prefix', 'calendar'), '/');

@@ -8,6 +8,8 @@ use Carbon\Carbon;
 use ElSchneider\StatamicCalendar\Facades\Occurrences;
 use ElSchneider\StatamicCalendar\Occurrences\OccurrenceData;
 use ElSchneider\StatamicCalendar\Occurrences\OccurrenceResolver;
+use Statamic\Contracts\Entries\Entry as EntryContract;
+use Statamic\CP\LivePreview;
 use Statamic\Facades\Entry;
 use Statamic\View\View;
 
@@ -21,19 +23,22 @@ class OccurrenceController
     {
         $collection = (string) config('statamic-calendar.collection', 'events');
 
-        $entry = Entry::query()
+        $previewEntry = $this->previewEntry($collection, $slug);
+        $entry = $previewEntry ?? Entry::query()
             ->where('collection', $collection)
             ->where('slug', $slug)
             ->first();
 
-        if (! $entry || ! $entry->published()) {
+        if (! $entry || (! $previewEntry && ! $entry->published())) {
             abort(404);
         }
 
         $date = Carbon::create($year, $month, $day);
 
-        $cachedOccurrence = Occurrences::forEntry($entry->id())
-            ->first(fn (OccurrenceData $o) => $o->start->isSameDay($date));
+        $cachedOccurrence = $previewEntry
+            ? null
+            : Occurrences::forEntry($entry->id())
+                ->first(fn (OccurrenceData $o) => $o->start->isSameDay($date));
 
         if ($cachedOccurrence) {
             return $this->renderOccurrence($entry, [
@@ -60,6 +65,23 @@ class OccurrenceController
             'recurrence_description' => $occurrence->recurrenceDescription,
             'occurrence_url' => $occurrence->url(),
         ]);
+    }
+
+    private function previewEntry(string $collection, string $slug): ?EntryContract
+    {
+        if (! request()->isLivePreview()) {
+            return null;
+        }
+
+        $entry = app(LivePreview::class)->item(request()->statamicToken());
+
+        if (! $entry instanceof EntryContract
+            || $entry->collectionHandle() !== $collection
+            || $entry->slug() !== $slug) {
+            return null;
+        }
+
+        return $entry;
     }
 
     private function renderOccurrence($entry, array $occurrenceData)
