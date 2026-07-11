@@ -55,7 +55,9 @@ class ServiceProvider extends AddonServiceProvider
         $this->app['view']->composer('statamic::entries.edit', function ($view): void {
             $entry = $view->getData()['entry'] ?? null;
 
-            if ($entry instanceof EntryContract && $entry->collectionHandle() === config('statamic-calendar.collection', 'events')) {
+            if ($entry instanceof EntryContract
+                && $entry->collectionHandle() === config('statamic-calendar.collection', 'events')
+                && config('statamic-calendar.url.strategy', 'query_string') === 'date_segments') {
                 $view->with('collectionHasRoutes', true);
             }
         });

@@ -57,6 +57,18 @@ test('query string event urls retain the native entry route', function () {
     expect($entry->url())->toBe('/events/community-meetup?date=2026-07-12');
 });
 
+test('query string events without a native route have no public or preview url', function () {
+    Carbon::setTestNow('2026-07-11 12:00:00');
+    config()->set('statamic-calendar.url.strategy', 'query_string');
+
+    $entry = calendarEntry([
+        ['start_date' => '2026-07-12', 'start_time' => '18:00'],
+    ]);
+
+    expect($entry->url())->toBeNull()
+        ->and($entry->livePreviewUrl())->toBeNull();
+});
+
 test('event urls fall back to the most recent occurrence', function () {
     Carbon::setTestNow('2026-07-11 12:00:00');
 

@@ -33,7 +33,7 @@ trait HasCalendarUrls
             return parent::livePreviewUrl();
         }
 
-        return $this->representativeOccurrence()
+        return $this->calendarOccurrenceUrl()
             ? $this->cpUrl('collections.entries.preview.edit')
             : null;
     }
