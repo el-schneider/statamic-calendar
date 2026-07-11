@@ -3,8 +3,8 @@
 declare(strict_types=1);
 
 use Carbon\Carbon;
-use ElSchneider\StatamicCalendar\Entries\CalendarEntry;
 use Illuminate\Support\Facades\File;
+use Statamic\Contracts\Entries\Entry as EntryContract;
 use Statamic\Facades\Collection;
 use Statamic\Facades\Entry;
 
@@ -19,21 +19,17 @@ afterEach(function () {
     ]);
 });
 
-function calendarEntry(array $dates, string $slug = 'community-meetup'): CalendarEntry
+function calendarEntry(array $dates, string $slug = 'community-meetup'): EntryContract
 {
     $collection = Collection::find('events') ?? Collection::make('events');
     $collection->save();
 
-    return (new CalendarEntry)
+    return Entry::make()
         ->collection($collection)
         ->locale('default')
         ->slug($slug)
         ->data(['dates' => $dates]);
 }
-
-test('the entry repository creates calendar-aware entries', function () {
-    expect(Entry::make())->toBeInstanceOf(CalendarEntry::class);
-});
 
 test('event urls use the next occurrence', function () {
     Carbon::setTestNow('2026-07-11 12:00:00');
@@ -100,7 +96,7 @@ test('non-event entries retain native urls', function () {
     $collection = Collection::make('articles')->routes('/articles/{slug}');
     $collection->save();
 
-    $entry = (new CalendarEntry)
+    $entry = Entry::make()
         ->collection($collection)
         ->locale('default')
         ->slug('news');

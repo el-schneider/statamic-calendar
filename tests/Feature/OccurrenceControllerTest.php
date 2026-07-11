@@ -2,53 +2,86 @@
 
 declare(strict_types=1);
 
-use Carbon\Carbon;
 use ElSchneider\StatamicCalendar\Http\Controllers\OccurrenceController;
-use ElSchneider\StatamicCalendar\Occurrences\Occurrence;
 use ElSchneider\StatamicCalendar\Occurrences\OccurrenceResolver;
 use Illuminate\Http\Request;
-use Statamic\Contracts\Tokens\Token;
+use Illuminate\Support\Facades\File;
 use Statamic\CP\LivePreview;
+use Statamic\Facades\Collection;
 use Statamic\Facades\Entry;
-use Statamic\View\View;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+
+afterEach(function () {
+    File::delete([
+        __DIR__.'/../__fixtures__/content/collections/events.yaml',
+        __DIR__.'/../__fixtures__/content/collections/events/draft-event.md',
+    ]);
+});
 
 test('occurrence route renders tokenized unsaved preview values', function () {
     config()->set('statamic-calendar.url.strategy', 'date_segments');
 
-    $token = Mockery::mock(Token::class);
-    $request = Mockery::mock(Request::class)->shouldIgnoreMissing();
-    $request->shouldReceive('isLivePreview')->andReturnTrue();
-    $request->shouldReceive('statamicToken')->andReturn($token);
-    app()->instance('request', $request);
+    $collection = Collection::make('events');
+    $collection->save();
 
-    $entry = Mockery::mock(Statamic\Entries\Entry::class);
-    $entry->shouldReceive('collectionHandle')->andReturn('events');
-    $entry->shouldReceive('slug')->andReturn('draft-event');
-    $entry->shouldReceive('toAugmentedArray')->andReturn(['title' => 'Unsaved title']);
-    $entry->shouldReceive('template')->andReturn('default');
-    $entry->shouldReceive('layout')->andReturn('layout');
+    $entry = Entry::make()
+        ->id('draft-event')
+        ->collection($collection)
+        ->locale('default')
+        ->slug('draft-event')
+        ->published(false)
+        ->template('statamic-calendar/show')
+        ->data([
+            'title' => 'Saved title',
+            'dates' => [['start_date' => '2026-07-01', 'start_time' => '10:00']],
+        ]);
 
-    $livePreview = Mockery::mock(LivePreview::class);
-    $livePreview->shouldReceive('item')->with($token)->andReturn($entry);
-    app()->instance(LivePreview::class, $livePreview);
+    $entry->setSupplement('title', 'Unsaved title');
+    $entry->setSupplement('dates', [
+        ['start_date' => '2026-08-03', 'start_time' => '10:00'],
+    ]);
 
-    $occurrence = new Occurrence(
-        $entry,
-        Carbon::parse('2026-08-03 10:00'),
-        null,
-        false,
-        false,
-    );
+    $token = app(LivePreview::class)->tokenize('calendar-preview-test', $entry);
 
-    $resolver = Mockery::mock(OccurrenceResolver::class);
-    $resolver->shouldReceive('findOccurrenceOnDate')
-        ->with($entry, Mockery::on(fn (Carbon $date) => $date->toDateString() === '2026-08-03'))
-        ->andReturn($occurrence);
+    app()->instance('request', Request::create(
+        '/calendar/2026/08/03/draft-event',
+        'GET',
+        ['token' => $token->token()],
+    ));
 
-    $response = (new OccurrenceController($resolver))->show(2026, 8, 3, 'draft-event');
+    $response = app(OccurrenceController::class)->show(2026, 8, 3, 'draft-event');
 
-    expect($response)->toBeInstanceOf(View::class);
+    expect((string) $response->data()['title'])->toBe('Unsaved title')
+        ->and($response->data()['start']->toDateString())->toBe('2026-08-03');
+
+    expect(fn () => app(OccurrenceController::class)->show(2026, 8, 3, 'another-event'))
+        ->toThrow(NotFoundHttpException::class);
+});
+
+test('invalid preview tokens do not expose draft entries', function () {
+    $collection = Collection::make('events');
+    $collection->save();
+
+    Entry::make()
+        ->id('draft-event')
+        ->collection($collection)
+        ->locale('default')
+        ->slug('draft-event')
+        ->published(false)
+        ->data([
+            'title' => 'Private draft',
+            'dates' => [['start_date' => '2026-08-03', 'start_time' => '10:00']],
+        ])
+        ->save();
+
+    app()->instance('request', Request::create(
+        '/calendar/2026/08/03/draft-event',
+        'GET',
+        ['token' => 'invalid-preview-token'],
+    ));
+
+    expect(fn () => app(OccurrenceController::class)->show(2026, 8, 3, 'draft-event'))
+        ->toThrow(NotFoundHttpException::class);
 });
 
 test('occurrence route aborts for unpublished entries', function () {

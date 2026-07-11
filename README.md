@@ -102,7 +102,7 @@ The action URL uses:
 1. the next occurrence;
 2. or the most recent occurrence when the event has no upcoming dates.
 
-Entries without a valid occurrence show neither action. Live Preview resolves the occurrence from the unsaved form values, so changes to the title, slug, and dates are rendered before saving.
+Entries without a valid occurrence show neither action. Live Preview resolves the occurrence from the unsaved form values, so changes to the title and dates are rendered before saving.
 
 For `query_string`, keep the native collection route shown above because the occurrence URL is built on top of the entry URL. For `date_segments`, leave the collection route unset unless the collection needs one for another reason.
 

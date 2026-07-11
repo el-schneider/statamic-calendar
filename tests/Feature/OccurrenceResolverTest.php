@@ -138,6 +138,23 @@ test('recurring row missing frequency yields nothing instead of crashing', funct
     ]]))->toHaveCount(0);
 });
 
+test('representative occurrence finds the latest event without retaining its full history', function () {
+    Carbon::setTestNow('2060-01-01');
+
+    $occurrence = (new OccurrenceResolver)->representative(entryWithDates([[
+        'start_date' => '2026-01-01',
+        'start_time' => '10:00',
+        'is_recurring' => true,
+        'frequency' => 'DAILY',
+        'interval' => 1,
+        'recurrence_end' => 'count',
+        'count' => 10_000,
+    ]]));
+
+    expect($occurrence?->start->toDateString())
+        ->toBe(Carbon::parse('2026-01-01')->addDays(9_999)->toDateString());
+});
+
 test('a malformed start_time falls back to midnight instead of crashing the rebuild', function () {
     $occurrences = resolveDates([[
         'start_date' => '2025-06-01',
