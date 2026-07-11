@@ -16,10 +16,9 @@ class OccurrenceResolver
 {
     public function resolve(Entry $entry, Carbon $from, ?Carbon $to = null, ?int $limit = null): Collection
     {
-        $dates = $entry->get($this->datesField()) ?? [];
         $occurrences = collect();
 
-        foreach ($dates as $dateRow) {
+        foreach ($this->dates($entry) as $dateRow) {
             if (! is_array($dateRow)) {
                 continue;
             }
@@ -35,6 +34,34 @@ class OccurrenceResolver
         }
 
         return $occurrences->values();
+    }
+
+    public function representative(Entry $entry): ?Occurrence
+    {
+        $now = Carbon::now($this->timezone());
+        $occurrences = collect();
+
+        foreach ($this->dates($entry) as $dateRow) {
+            if (! is_array($dateRow)) {
+                continue;
+            }
+
+            $occurrences = $occurrences->merge($this->resolveDateRow(
+                $entry,
+                $dateRow,
+                Carbon::create(1, 1, 1, 0, 0, 0, $this->timezone()),
+                null,
+                null,
+                representativeAt: $now,
+            ));
+        }
+
+        $upcoming = $occurrences
+            ->filter(fn (Occurrence $o) => $o->start->gte($now))
+            ->sortBy(fn (Occurrence $o) => $o->start)
+            ->first();
+
+        return $upcoming ?? $occurrences->sortBy(fn (Occurrence $o) => $o->start)->last();
     }
 
     public function findOccurrenceOnDate(Entry $entry, Carbon $date): ?Occurrence
@@ -54,7 +81,7 @@ class OccurrenceResolver
         });
     }
 
-    private function resolveDateRow(Entry $entry, array $row, Carbon $from, ?Carbon $to, ?int $limit): Collection
+    private function resolveDateRow(Entry $entry, array $row, Carbon $from, ?Carbon $to, ?int $limit, ?Carbon $representativeAt = null): Collection
     {
         $isRecurring = (bool) ($row['is_recurring'] ?? false);
 
@@ -62,12 +89,12 @@ class OccurrenceResolver
             return $this->resolveSingleDate($entry, $row, $from, $to);
         }
 
-        return $this->resolveRecurringDate($entry, $row, $from, $to, $limit);
+        return $this->resolveRecurringDate($entry, $row, $from, $to, $limit, $representativeAt);
     }
 
-    private function resolveRecurringDate(Entry $entry, array $row, Carbon $from, ?Carbon $to, ?int $limit): Collection
+    private function resolveRecurringDate(Entry $entry, array $row, Carbon $from, ?Carbon $to, ?int $limit, ?Carbon $representativeAt = null): Collection
     {
-        if (! $to && ! $limit) {
+        if (! $to && ! $limit && ! $representativeAt) {
             $to = $from->copy()->addYear();
         }
 
@@ -137,17 +164,27 @@ class OccurrenceResolver
                 $end = $start->copy()->setTimeFromTimeString((string) $effectiveEndTime);
             }
 
-            $occurrences->push(new Occurrence(
+            $occurrence = new Occurrence(
                 entry: $entry,
                 start: $start,
                 end: $end,
                 isAllDay: (bool) ($row['is_all_day'] ?? false),
                 isRecurring: true,
                 recurrenceDescription: $recurrenceDescription,
-            ));
+            );
 
-            if ($limit && $occurrences->count() >= $limit) {
-                break;
+            if ($representativeAt) {
+                $occurrences = collect([$occurrence]);
+
+                if ($start->gte($representativeAt)) {
+                    break;
+                }
+            } else {
+                $occurrences->push($occurrence);
+
+                if ($limit && $occurrences->count() >= $limit) {
+                    break;
+                }
             }
         }
 
@@ -325,6 +362,16 @@ class OccurrenceResolver
             'include_start' => false,
             'include_until' => false,
         ]);
+    }
+
+    private function dates(Entry $entry): array
+    {
+        $field = $this->datesField();
+        $dates = $entry->hasSupplement($field)
+            ? $entry->getSupplement($field)
+            : $entry->get($field);
+
+        return is_array($dates) ? $dates : [];
     }
 
     private function datesField(): string

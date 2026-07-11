@@ -15,6 +15,7 @@ Recurring events and cached occurrences for Statamic. Works with Statamic 5 and 
 - Cache-build event for adding custom occurrence fields to tag/API output
 - Pagination for REST API responses and Antlers occurrence lists
 - Two URL strategies: query string (default, Statamic-native) or date segments
+- Control Panel Visit URL and Live Preview support for event entries
 - Example templates for index (list, archive, calendar grid) and show pages
 
 ## Requirements
@@ -91,6 +92,34 @@ For SEO-friendly date-based URLs like `/calendar/2025/03/15/my-event`. Enable in
 ```
 
 The addon registers a route at `/{prefix}/{year}/{month}/{day}/{slug}`.
+
+## Control Panel URLs and Live Preview
+
+Saved entries in the configured events collection automatically get **Visit URL** and **Live Preview** actions in the Control Panel. No collection route is needed when using `date_segments`.
+
+The action URL uses:
+
+1. the next occurrence;
+2. or the most recent occurrence when the event has no upcoming dates.
+
+Entries without a valid occurrence show neither action. Live Preview resolves the occurrence from the unsaved form values, so changes to the title and dates are rendered before saving.
+
+For `query_string`, keep the native collection route shown above because the occurrence URL is built on top of the entry URL. For `date_segments`, leave the collection route unset unless the collection needs one for another reason.
+
+### Existing Custom Entry Classes
+
+The addon does not replace an existing custom Statamic Entry class. Add the calendar URL concern to that class instead:
+
+```php
+use ElSchneider\StatamicCalendar\Entries\Concerns\HasCalendarUrls;
+
+class Entry extends \Statamic\Entries\Entry
+{
+    use HasCalendarUrls;
+}
+```
+
+When using the Eloquent Driver, extend `Statamic\Eloquent\Entries\Entry` instead. Existing custom Entry-class registration remains unchanged.
 
 ## iCalendar (.ics) Export
 

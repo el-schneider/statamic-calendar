@@ -5,13 +5,19 @@ declare(strict_types=1);
 namespace ElSchneider\StatamicCalendar;
 
 use ElSchneider\StatamicCalendar\Console\Commands\RebuildOccurrenceCacheCommand;
+use ElSchneider\StatamicCalendar\Entries\CalendarEloquentEntry;
+use ElSchneider\StatamicCalendar\Entries\CalendarEntry;
 use ElSchneider\StatamicCalendar\Http\Controllers\ApiOccurrenceController;
 use ElSchneider\StatamicCalendar\Http\Controllers\IcsController;
 use ElSchneider\StatamicCalendar\Listeners\RebuildOccurrenceCacheOnEntryChange;
 use ElSchneider\StatamicCalendar\Occurrences\OccurrenceCache;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Route;
+use Statamic\Contracts\Entries\Entry as EntryContract;
+use Statamic\Events\CollectionSaved;
 use Statamic\Events\EntryDeleted;
 use Statamic\Events\EntrySaved;
+use Statamic\Facades\Collection;
 use Statamic\Providers\AddonServiceProvider;
 
 class ServiceProvider extends AddonServiceProvider
@@ -40,7 +46,21 @@ class ServiceProvider extends AddonServiceProvider
 
     public function bootAddon()
     {
+        $this->registerCalendarEntryClass();
+        Event::listen(CollectionSaved::class, function (CollectionSaved $event): void {
+            $this->configureCollectionEntryClass($event->collection);
+        });
+
         $this->app['view']->addLocation(__DIR__.'/../resources/views');
+        $this->app['view']->composer('statamic::entries.edit', function ($view): void {
+            $entry = $view->getData()['entry'] ?? null;
+
+            if ($entry instanceof EntryContract
+                && $entry->collectionHandle() === config('statamic-calendar.collection', 'events')
+                && config('statamic-calendar.url.strategy', 'query_string') === 'date_segments') {
+                $view->with('collectionHasRoutes', true);
+            }
+        });
 
         $this->registerRoutes();
         $this->registerApiRoutes();
@@ -96,5 +116,55 @@ class ServiceProvider extends AddonServiceProvider
 
         Route::get($feedPath.'/{occurrenceId}', [IcsController::class, 'download'])
             ->name('statamic-calendar.ics.download');
+    }
+
+    private function registerCalendarEntryClass(): void
+    {
+        $collection = Collection::find(config('statamic-calendar.collection', 'events'));
+
+        if ($collection && method_exists($collection, 'entryClass')) {
+            $this->configureCollectionEntryClass($collection);
+
+            return;
+        }
+
+        $stockClass = $this->usesEloquentEntries()
+            ? \Statamic\Eloquent\Entries\Entry::class
+            : \Statamic\Entries\Entry::class;
+
+        if (get_class(app(EntryContract::class)) !== $stockClass) {
+            return;
+        }
+
+        $entryClass = $this->calendarEntryClass();
+        $this->app->bind(EntryContract::class, $entryClass);
+
+        if ($this->usesEloquentEntries()) {
+            $this->app->bind('statamic.eloquent.entries.entry', fn () => $entryClass);
+        }
+    }
+
+    private function configureCollectionEntryClass($collection): void
+    {
+        if ($collection->handle() !== config('statamic-calendar.collection', 'events')
+            || ! method_exists($collection, 'entryClass')
+            || $collection->entryClass()) {
+            return;
+        }
+
+        $collection->entryClass($this->calendarEntryClass());
+    }
+
+    private function calendarEntryClass(): string
+    {
+        return $this->usesEloquentEntries()
+            ? CalendarEloquentEntry::class
+            : CalendarEntry::class;
+    }
+
+    private function usesEloquentEntries(): bool
+    {
+        return class_exists(\Statamic\Eloquent\Entries\Entry::class)
+            && config('statamic.eloquent-driver.entries.driver') === 'eloquent';
     }
 }
