@@ -36,7 +36,7 @@
     },
     "require": {
         "rlanvin/php-rrule": "^2.6",
-        "statamic/cms": "^5.0 || ^6.0"
+        "statamic/cms": "^5.74.0 || ^6.20.3"
     },
     "require-dev": {
         "orchestra/testbench": "^9.0 || ^10.0",
