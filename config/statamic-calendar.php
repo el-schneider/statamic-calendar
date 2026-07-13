@@ -99,8 +99,8 @@ return [
 
         /*
         | When date-segment occurrence URLs expire, redirect them to the next
-        | upcoming occurrence for the same entry. Ended series keep rendering
-        | their past occurrence pages.
+        | upcoming occurrence for the same entry. If no successor exists, the
+        | past occurrence page keeps rendering.
         */
         'redirect_expired' => true,
 

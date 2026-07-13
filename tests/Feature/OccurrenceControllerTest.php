@@ -23,6 +23,7 @@ afterEach(function () {
         __DIR__.'/../__fixtures__/content/collections/events/past-with-successor.md',
         __DIR__.'/../__fixtures__/content/collections/events/ended-series.md',
         __DIR__.'/../__fixtures__/content/collections/events/future-event.md',
+        __DIR__.'/../__fixtures__/content/collections/events/today-event.md',
     ]);
 });
 
@@ -62,8 +63,28 @@ test('past occurrence redirects to the next upcoming occurrence', function () {
     $response = app(OccurrenceController::class)->show(2026, 7, 4, 'past-with-successor');
 
     expect($response->getStatusCode())->toBe(301)
-        ->and($response->headers->get('Location'))->toBe('http://localhost/calendar/2026/07/18/past-with-successor');
+        ->and(parse_url((string) $response->headers->get('Location'), PHP_URL_PATH))->toBe('/calendar/2026/07/18/past-with-successor');
 });
+
+it('renders today occurrences instead of redirecting expired URLs', function (string $startTime) {
+    Carbon::setTestNow('2026-07-11 12:00:00');
+    config()->set('statamic-calendar.url.strategy', 'date_segments');
+
+    occurrenceControllerEntry('today-event', [[
+        'start_date' => '2026-07-11',
+        'start_time' => $startTime,
+        'is_recurring' => true,
+        'frequency' => 'weekly',
+    ]]);
+
+    $response = app(OccurrenceController::class)->show(2026, 7, 11, 'today-event');
+
+    expect($response->data()['start']->toDateString())->toBe('2026-07-11')
+        ->and($response->data()['occurrence_url'])->toBe('/calendar/2026/07/11/today-event');
+})->with([
+    'started earlier today' => '10:00',
+    'starts later today' => '14:00',
+]);
 
 test('past occurrence for ended series keeps rendering', function () {
     Carbon::setTestNow('2026-07-11 12:00:00');
@@ -118,6 +139,7 @@ test('occurrence view data includes an absolute canonical url', function () {
 });
 
 test('occurrence route renders tokenized unsaved preview values', function () {
+    Carbon::setTestNow('2026-07-11 12:00:00');
     config()->set('statamic-calendar.url.strategy', 'date_segments');
 
     $collection = Collection::make('events');
@@ -132,28 +154,31 @@ test('occurrence route renders tokenized unsaved preview values', function () {
         ->template('statamic-calendar/show')
         ->data([
             'title' => 'Saved title',
-            'dates' => [['start_date' => '2026-07-01', 'start_time' => '10:00']],
+            'dates' => [['start_date' => '2026-08-03', 'start_time' => '10:00']],
         ]);
 
     $entry->setSupplement('title', 'Unsaved title');
-    $entry->setSupplement('dates', [
-        ['start_date' => '2026-08-03', 'start_time' => '10:00'],
-    ]);
+    $entry->setSupplement('dates', [[
+        'start_date' => '2026-07-04',
+        'start_time' => '10:00',
+        'is_recurring' => true,
+        'frequency' => 'weekly',
+    ]]);
 
     $token = app(LivePreview::class)->tokenize('calendar-preview-test', $entry);
 
     app()->instance('request', Request::create(
-        '/calendar/2026/08/03/draft-event',
+        '/calendar/2026/07/04/draft-event',
         'GET',
         ['token' => $token->token()],
     ));
 
-    $response = app(OccurrenceController::class)->show(2026, 8, 3, 'draft-event');
+    $response = app(OccurrenceController::class)->show(2026, 7, 4, 'draft-event');
 
     expect((string) $response->data()['title'])->toBe('Unsaved title')
-        ->and($response->data()['start']->toDateString())->toBe('2026-08-03');
+        ->and($response->data()['start']->toDateString())->toBe('2026-07-04');
 
-    expect(fn () => app(OccurrenceController::class)->show(2026, 8, 3, 'another-event'))
+    expect(fn () => app(OccurrenceController::class)->show(2026, 7, 4, 'another-event'))
         ->toThrow(NotFoundHttpException::class);
 });
 

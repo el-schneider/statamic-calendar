@@ -8,6 +8,7 @@ use Carbon\Carbon;
 use ElSchneider\StatamicCalendar\Facades\Occurrences;
 use ElSchneider\StatamicCalendar\Occurrences\OccurrenceData;
 use ElSchneider\StatamicCalendar\Occurrences\OccurrenceResolver;
+use Illuminate\Support\Collection;
 use Statamic\Contracts\Entries\Entry as EntryContract;
 use Statamic\CP\LivePreview;
 use Statamic\Facades\Entry;
@@ -35,10 +36,13 @@ class OccurrenceController
 
         $date = Carbon::create($year, $month, $day);
 
-        $cachedOccurrence = $previewEntry
+        $cachedOccurrences = $previewEntry
             ? null
-            : Occurrences::forEntry($entry->id())
-                ->first(fn (OccurrenceData $o) => $o->start->isSameDay($date));
+            : Occurrences::forEntry($entry->id());
+
+        $cachedOccurrence = $cachedOccurrences
+            ? $cachedOccurrences->first(fn (OccurrenceData $o) => $o->start->isSameDay($date))
+            : null;
 
         if ($cachedOccurrence) {
             $occurrenceData = [
@@ -50,7 +54,7 @@ class OccurrenceController
                 'occurrence_url' => $cachedOccurrence->url,
             ];
 
-            if ($redirect = $this->redirectExpiredOccurrence($entry, $cachedOccurrence->start)) {
+            if ($redirect = $this->redirectExpiredOccurrence($entry, $cachedOccurrence->start, $cachedOccurrence->end, $cachedOccurrences)) {
                 return $redirect;
             }
 
@@ -63,7 +67,7 @@ class OccurrenceController
             abort(404);
         }
 
-        if ($redirect = $this->redirectExpiredOccurrence($entry, $occurrence->start)) {
+        if ($redirect = $this->redirectExpiredOccurrence($entry, $occurrence->start, $occurrence->end)) {
             return $redirect;
         }
 
@@ -94,7 +98,7 @@ class OccurrenceController
         return $entry;
     }
 
-    private function redirectExpiredOccurrence(EntryContract $entry, Carbon $occurrenceStart)
+    private function redirectExpiredOccurrence(EntryContract $entry, Carbon $occurrenceStart, ?Carbon $occurrenceEnd = null, ?Collection $cachedOccurrences = null)
     {
         if (! config('statamic-calendar.url.redirect_expired', true)) {
             return null;
@@ -104,17 +108,30 @@ class OccurrenceController
             return null;
         }
 
-        if ($occurrenceStart->copy()->endOfDay()->gte(Carbon::now($occurrenceStart->getTimezone()))) {
+        $now = Carbon::now($occurrenceStart->getTimezone());
+        $expiresAt = $occurrenceEnd ?? $occurrenceStart->copy()->endOfDay();
+
+        if ($expiresAt->gte($now)) {
             return null;
         }
 
-        $next = $this->resolver->nextUpcoming($entry);
+        $nextUrl = $cachedOccurrences
+            ? $this->nextCachedOccurrenceUrl($cachedOccurrences, $now)
+            : $this->resolver->nextUpcoming($entry)?->url();
 
-        if (! $next) {
+        if (! $nextUrl) {
             return null;
         }
 
-        return redirect()->to($this->absoluteOccurrenceUrl($entry, $next->url()), 301);
+        return redirect()->to($this->absoluteOccurrenceUrl($entry, $nextUrl), 301);
+    }
+
+    private function nextCachedOccurrenceUrl(Collection $cachedOccurrences, Carbon $from): ?string
+    {
+        return $cachedOccurrences
+            ->filter(fn (OccurrenceData $occurrence) => $occurrence->start->gte($from))
+            ->sortBy(fn (OccurrenceData $occurrence) => $occurrence->start)
+            ->first()?->url;
     }
 
     private function renderOccurrence($entry, array $occurrenceData)
