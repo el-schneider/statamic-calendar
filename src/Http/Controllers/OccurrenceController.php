@@ -8,6 +8,7 @@ use Carbon\Carbon;
 use ElSchneider\StatamicCalendar\Facades\Occurrences;
 use ElSchneider\StatamicCalendar\Occurrences\OccurrenceData;
 use ElSchneider\StatamicCalendar\Occurrences\OccurrenceResolver;
+use Illuminate\Support\Collection;
 use Statamic\Contracts\Entries\Entry as EntryContract;
 use Statamic\CP\LivePreview;
 use Statamic\Facades\Entry;
@@ -35,26 +36,39 @@ class OccurrenceController
 
         $date = Carbon::create($year, $month, $day);
 
-        $cachedOccurrence = $previewEntry
+        $cachedOccurrences = $previewEntry
             ? null
-            : Occurrences::forEntry($entry->id())
-                ->first(fn (OccurrenceData $o) => $o->start->isSameDay($date));
+            : Occurrences::forEntry($entry->id());
+
+        $cachedOccurrence = $cachedOccurrences
+            ? $cachedOccurrences->first(fn (OccurrenceData $o) => $o->start->isSameDay($date))
+            : null;
 
         if ($cachedOccurrence) {
-            return $this->renderOccurrence($entry, [
+            $occurrenceData = [
                 'start' => $cachedOccurrence->start,
                 'end' => $cachedOccurrence->end,
                 'is_all_day' => $cachedOccurrence->isAllDay,
                 'is_recurring' => $cachedOccurrence->isRecurring,
                 'recurrence_description' => $cachedOccurrence->recurrenceDescription,
                 'occurrence_url' => $cachedOccurrence->url,
-            ]);
+            ];
+
+            if ($redirect = $this->redirectExpiredOccurrence($entry, $cachedOccurrence->start, $cachedOccurrence->end, $cachedOccurrences)) {
+                return $redirect;
+            }
+
+            return $this->renderOccurrence($entry, $occurrenceData);
         }
 
         $occurrence = $this->resolver->findOccurrenceOnDate($entry, $date);
 
         if (! $occurrence) {
             abort(404);
+        }
+
+        if ($redirect = $this->redirectExpiredOccurrence($entry, $occurrence->start, $occurrence->end)) {
+            return $redirect;
         }
 
         return $this->renderOccurrence($entry, [
@@ -84,13 +98,63 @@ class OccurrenceController
         return $entry;
     }
 
+    private function redirectExpiredOccurrence(EntryContract $entry, Carbon $occurrenceStart, ?Carbon $occurrenceEnd = null, ?Collection $cachedOccurrences = null)
+    {
+        if (! config('statamic-calendar.url.redirect_expired', true)) {
+            return null;
+        }
+
+        if (request()->isLivePreview()) {
+            return null;
+        }
+
+        $now = Carbon::now($occurrenceStart->getTimezone());
+        $expiresAt = $occurrenceEnd ?? $occurrenceStart->copy()->endOfDay();
+
+        if ($expiresAt->gte($now)) {
+            return null;
+        }
+
+        $nextUrl = $cachedOccurrences
+            ? $this->nextCachedOccurrenceUrl($cachedOccurrences, $now)
+            : $this->resolver->nextUpcoming($entry)?->url();
+
+        if (! $nextUrl) {
+            return null;
+        }
+
+        return redirect()->to($this->absoluteOccurrenceUrl($entry, $nextUrl), 301);
+    }
+
+    private function nextCachedOccurrenceUrl(Collection $cachedOccurrences, Carbon $from): ?string
+    {
+        return $cachedOccurrences
+            ->filter(fn (OccurrenceData $occurrence) => $occurrence->start->gte($from))
+            ->sortBy(fn (OccurrenceData $occurrence) => $occurrence->start)
+            ->first()?->url;
+    }
+
     private function renderOccurrence($entry, array $occurrenceData)
     {
+        $occurrenceData['occurrence_canonical_url'] = $this->absoluteOccurrenceUrl(
+            $entry,
+            (string) $occurrenceData['occurrence_url'],
+        );
+
         $data = array_merge($entry->toAugmentedArray(), $occurrenceData);
 
         return (new View)
             ->template($entry->template())
             ->layout($entry->layout())
             ->with($data);
+    }
+
+    private function absoluteOccurrenceUrl(EntryContract $entry, string $url): string
+    {
+        if (str_starts_with($url, 'http://') || str_starts_with($url, 'https://')) {
+            return $url;
+        }
+
+        return rtrim($entry->site()->absoluteUrl(), '/').'/'.ltrim($url, '/');
     }
 }

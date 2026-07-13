@@ -39,29 +39,20 @@ class OccurrenceResolver
     public function representative(Entry $entry): ?Occurrence
     {
         $now = Carbon::now($this->timezone());
-        $occurrences = collect();
+        $occurrences = $this->representativeCandidates($entry, $now);
 
-        foreach ($this->dates($entry) as $dateRow) {
-            if (! is_array($dateRow)) {
-                continue;
-            }
+        return $this->firstUpcoming($occurrences, $now)
+            ?? $occurrences->sortBy(fn (Occurrence $o) => $o->start)->last();
+    }
 
-            $occurrences = $occurrences->merge($this->resolveDateRow(
-                $entry,
-                $dateRow,
-                Carbon::create(1, 1, 1, 0, 0, 0, $this->timezone()),
-                null,
-                null,
-                representativeAt: $now,
-            ));
-        }
+    public function nextUpcoming(Entry $entry, ?Carbon $from = null): ?Occurrence
+    {
+        $from ??= Carbon::now($this->timezone());
 
-        $upcoming = $occurrences
-            ->filter(fn (Occurrence $o) => $o->start->gte($now))
-            ->sortBy(fn (Occurrence $o) => $o->start)
-            ->first();
-
-        return $upcoming ?? $occurrences->sortBy(fn (Occurrence $o) => $o->start)->last();
+        return $this->firstUpcoming(
+            $this->representativeCandidates($entry, $from),
+            $from,
+        );
     }
 
     public function findOccurrenceOnDate(Entry $entry, Carbon $date): ?Occurrence
@@ -79,6 +70,36 @@ class OccurrenceResolver
         return $occurrences->first(function (Occurrence $o) use ($date, $tz) {
             return $o->start->isSameDay($date->copy()->setTimezone($tz));
         });
+    }
+
+    private function representativeCandidates(Entry $entry, Carbon $at): Collection
+    {
+        $occurrences = collect();
+
+        foreach ($this->dates($entry) as $dateRow) {
+            if (! is_array($dateRow)) {
+                continue;
+            }
+
+            $occurrences = $occurrences->merge($this->resolveDateRow(
+                $entry,
+                $dateRow,
+                Carbon::create(1, 1, 1, 0, 0, 0, $this->timezone()),
+                null,
+                null,
+                representativeAt: $at,
+            ));
+        }
+
+        return $occurrences;
+    }
+
+    private function firstUpcoming(Collection $occurrences, Carbon $from): ?Occurrence
+    {
+        return $occurrences
+            ->filter(fn (Occurrence $o) => $o->start->gte($from))
+            ->sortBy(fn (Occurrence $o) => $o->start)
+            ->first();
     }
 
     private function resolveDateRow(Entry $entry, array $row, Carbon $from, ?Carbon $to, ?int $limit, ?Carbon $representativeAt = null): Collection
