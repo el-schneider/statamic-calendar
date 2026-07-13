@@ -41,20 +41,30 @@ class OccurrenceController
                 ->first(fn (OccurrenceData $o) => $o->start->isSameDay($date));
 
         if ($cachedOccurrence) {
-            return $this->renderOccurrence($entry, [
+            $occurrenceData = [
                 'start' => $cachedOccurrence->start,
                 'end' => $cachedOccurrence->end,
                 'is_all_day' => $cachedOccurrence->isAllDay,
                 'is_recurring' => $cachedOccurrence->isRecurring,
                 'recurrence_description' => $cachedOccurrence->recurrenceDescription,
                 'occurrence_url' => $cachedOccurrence->url,
-            ]);
+            ];
+
+            if ($redirect = $this->redirectExpiredOccurrence($entry, $cachedOccurrence->start)) {
+                return $redirect;
+            }
+
+            return $this->renderOccurrence($entry, $occurrenceData);
         }
 
         $occurrence = $this->resolver->findOccurrenceOnDate($entry, $date);
 
         if (! $occurrence) {
             abort(404);
+        }
+
+        if ($redirect = $this->redirectExpiredOccurrence($entry, $occurrence->start)) {
+            return $redirect;
         }
 
         return $this->renderOccurrence($entry, [
@@ -84,13 +94,50 @@ class OccurrenceController
         return $entry;
     }
 
+    private function redirectExpiredOccurrence(EntryContract $entry, Carbon $occurrenceStart)
+    {
+        if (! config('statamic-calendar.url.redirect_expired', true)) {
+            return null;
+        }
+
+        if (request()->isLivePreview()) {
+            return null;
+        }
+
+        if ($occurrenceStart->copy()->endOfDay()->gte(Carbon::now($occurrenceStart->getTimezone()))) {
+            return null;
+        }
+
+        $next = $this->resolver->nextUpcoming($entry);
+
+        if (! $next) {
+            return null;
+        }
+
+        return redirect()->to($this->absoluteOccurrenceUrl($entry, $next->url()), 301);
+    }
+
     private function renderOccurrence($entry, array $occurrenceData)
     {
+        $occurrenceData['occurrence_canonical_url'] = $this->absoluteOccurrenceUrl(
+            $entry,
+            (string) $occurrenceData['occurrence_url'],
+        );
+
         $data = array_merge($entry->toAugmentedArray(), $occurrenceData);
 
         return (new View)
             ->template($entry->template())
             ->layout($entry->layout())
             ->with($data);
+    }
+
+    private function absoluteOccurrenceUrl(EntryContract $entry, string $url): string
+    {
+        if (str_starts_with($url, 'http://') || str_starts_with($url, 'https://')) {
+            return $url;
+        }
+
+        return rtrim($entry->site()->absoluteUrl(), '/').'/'.ltrim($url, '/');
     }
 }

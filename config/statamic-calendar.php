@@ -97,6 +97,13 @@ return [
     'url' => [
         'strategy' => 'query_string',
 
+        /*
+        | When date-segment occurrence URLs expire, redirect them to the next
+        | upcoming occurrence for the same entry. Ended series keep rendering
+        | their past occurrence pages.
+        */
+        'redirect_expired' => true,
+
         'query_string' => [
             'param' => 'date',
             'format' => 'Y-m-d',
