@@ -305,6 +305,24 @@ Set the collection template to `events/show`, then create `resources/views/event
 
 The `{{ calendar:current_occurrence }}` tag reads the `?date=` query parameter and resolves the matching occurrence for the current entry. When using the `date_segments` strategy, the date is extracted from the URL instead.
 
+With the `date_segments` strategy, the occurrence controller also exposes the current occurrence directly to the show template: `start`, `end`, `is_all_day`, `is_recurring`, `recurrence_description`, `occurrence_url`, and `occurrence_canonical_url`. Compose SEO markup from those values plus your own blueprint fields:
+
+```antlers
+{{ push:head }}
+  <link rel="canonical" href="{{ occurrence_canonical_url }}">
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Event",
+      "name": {{ title | to_json }},
+      "startDate": "{{ start format='c' }}",
+      {{ if end }}"endDate": "{{ end format='c' }}",{{ /if }}
+      "url": "{{ occurrence_canonical_url }}"
+    }
+  </script>
+{{ /push:head }}
+```
+
 ## Antlers Tags
 
 ### `{{ calendar }}`
