@@ -4,10 +4,7 @@ declare(strict_types=1);
 
 namespace ElSchneider\StatamicCalendar\Tests;
 
-/**
- * Boots the app with the events collection already on disk — the state of every
- * real install, and the one that used to skip calendar URL registration.
- */
+/** Events collection exists before boot — the state of every real install. */
 abstract class ExistingCollectionTestCase extends TestCase
 {
     private const COLLECTION = __DIR__.'/__fixtures__/content/collections/events.yaml';

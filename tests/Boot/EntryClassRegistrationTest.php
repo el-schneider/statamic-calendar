@@ -15,9 +15,7 @@ beforeEach(function () {
 test('entries get calendar urls when the collection already existed at boot', function () {
     Carbon::setTestNow('2026-07-11 12:00:00');
 
-    // Real requests rebuild collections from the persisted Stache, so anything the
-    // addon set on the boot-time instance is gone by the time entries are made.
-    Stache::clear();
+    Stache::clear(); // force the rehydration a real request does
 
     $entry = Entry::make()
         ->collection(Collection::find('events'))
