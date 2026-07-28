@@ -157,7 +157,8 @@ class OccurrenceCache
                 Event::dispatch($event);
 
                 $occurrences->push([
-                    ...$event->extra,
+                    // toArray() unwraps Arrayable extras; cached payloads stay plain data.
+                    ...collect($event->extra)->toArray(),
                     ...$payload, // Core fields win on collisions.
                 ]);
             }

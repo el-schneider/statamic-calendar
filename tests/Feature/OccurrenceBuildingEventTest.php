@@ -7,6 +7,7 @@ use ElSchneider\StatamicCalendar\Events\OccurrenceBuilding;
 use ElSchneider\StatamicCalendar\Occurrences\Occurrence;
 use ElSchneider\StatamicCalendar\Occurrences\OccurrenceCache;
 use ElSchneider\StatamicCalendar\Occurrences\OccurrenceResolver;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Event;
 use Statamic\Facades\Entry;
@@ -54,7 +55,7 @@ test('rebuild skips unpublished entries', function () {
 
 test('rebuild persists OccurrenceBuilding extras without letting them shadow core fields', function () {
     Event::listen(OccurrenceBuilding::class, function (OccurrenceBuilding $e) {
-        $e->extra['image'] = ['url' => '/assets/foo.jpg'];
+        $e->extra['image'] = new Collection(['url' => '/assets/foo.jpg']);
         $e->extra['category'] = $e->entry->slug();
         $e->extra['occurrence_date'] = $e->occurrence->start->toDateString();
         $e->extra['title'] = 'Shadowed title';
