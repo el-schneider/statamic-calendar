@@ -138,8 +138,8 @@ class ServiceProvider extends AddonServiceProvider
             $this->configureCollectionEntryClass($collection);
         }
 
-        // Statamic 6 resolves the entry class off the collection, but flat-file
-        // collections are rehydrated from YAML on every lookup, so the class set
+        // Statamic 6 resolves the entry class off the collection, but the Stache
+        // hands out collections rebuilt from its own cached item, so the class set
         // above only survives on drivers that keep the instance (eloquent).
         // Binding the container class covers the Stache, and Statamic 5, which has
         // no per-collection entry class at all.
