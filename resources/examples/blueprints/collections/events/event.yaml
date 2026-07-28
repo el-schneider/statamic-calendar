@@ -188,7 +188,7 @@ tabs:
                   field:
                     type: grid
                     display: Exclusions
-                    instructions: 'Dates to exclude from the recurrence'
+                    instructions: 'Dates to exclude from the recurrence. Exclusions surface as occurrences with `is_excluded: true` when templates opt in via `include_excluded="true"`, so cancelled or rescheduled dates remain visible. Set `Moved to` to link an exclusion to the rescheduled date; any occurrence on that date exposes `replaces_date` pointing back to this exclusion.'
                     add_row: 'Add Exclusion'
                     mode: table
                     if:
@@ -200,7 +200,7 @@ tabs:
                           display: Date
                           time_enabled: false
                           required: true
-                          width: 66
+                          width: 33
                           validate:
                             - required
                       - handle: time
@@ -208,6 +208,13 @@ tabs:
                           type: text
                           display: Time
                           input_type: time
+                          width: 33
+                      - handle: replacement_date
+                        field:
+                          type: date
+                          display: 'Moved to'
+                          instructions: 'Optional — if this occurrence was rescheduled rather than cancelled, set the new date here.'
+                          time_enabled: false
                           width: 33
                 - handle: additions
                   field:

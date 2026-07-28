@@ -40,7 +40,7 @@ test('rebuild skips unpublished entries', function () {
     $resolver = Mockery::mock(OccurrenceResolver::class);
     $resolver->shouldReceive('resolve')
         ->once()
-        ->with($publishedEntry, Mockery::type(Carbon::class), Mockery::type(Carbon::class))
+        ->with($publishedEntry, Mockery::type(Carbon::class), Mockery::type(Carbon::class), null, true)
         ->andReturn(collect([
             new Occurrence($publishedEntry, Carbon::parse('2026-03-10 10:00'), null, false, false),
         ]));

@@ -38,14 +38,15 @@ class Calendar extends Tags
         $sort = (string) $this->params->get('sort', 'asc');
         $paginate = $this->params->int('paginate');
         $pageName = (string) $this->params->get('page_name', 'page');
+        $includeExcluded = $this->params->bool('include_excluded', false);
 
         $tags = $this->params->get('tags');
 
         if ($collection === config('statamic-calendar.collection', 'events')) {
-            return $this->indexFromCache($from, $to, $limit, $tags, $sort, $paginate, $pageName);
+            return $this->indexFromCache($from, $to, $limit, $tags, $sort, $paginate, $pageName, $includeExcluded);
         }
 
-        return $this->indexFromResolver($collection, $from, $to, $limit, $tags, $sort, $paginate, $pageName);
+        return $this->indexFromResolver($collection, $from, $to, $limit, $tags, $sort, $paginate, $pageName, $includeExcluded);
     }
 
     /**
@@ -158,6 +159,8 @@ class Calendar extends Tags
         $collection = (string) $this->params->get('collection', config('statamic-calendar.collection', 'events'));
         $tags = $this->params->get('tags');
 
+        $includeExcluded = $this->params->bool('include_excluded', false);
+
         $monthValue = request()->query($param);
         $current = ($monthValue && is_string($monthValue) && preg_match('/^\d{4}-\d{2}$/', $monthValue))
             ? Carbon::createFromFormat('Y-m', $monthValue)->startOfMonth()
@@ -166,8 +169,8 @@ class Calendar extends Tags
         [$gridStart, $gridEnd] = $this->monthGridBoundaries($current, $weekStartsOn, $fixedRows);
 
         $occurrences = ($collection === config('statamic-calendar.collection', 'events'))
-            ? $this->indexFromCache($gridStart, $gridEnd, null, $tags)
-            : $this->indexFromResolver($collection, $gridStart, $gridEnd, null, $tags);
+            ? $this->indexFromCache($gridStart, $gridEnd, null, $tags, includeExcluded: $includeExcluded)
+            : $this->indexFromResolver($collection, $gridStart, $gridEnd, null, $tags, includeExcluded: $includeExcluded);
 
         $grouped = collect($occurrences)->groupBy(
             fn (array $o) => Carbon::parse($o['start'])->format('Y-m-d')
@@ -210,8 +213,9 @@ class Calendar extends Tags
 
         $to = $this->params->has('to') ? Carbon::parse((string) $this->params->get('to')) : null;
         $limit = $this->params->int('limit', 5);
+        $includeExcluded = $this->params->bool('include_excluded', false);
 
-        $occurrences = $this->resolver->resolve($entry, $from, $to, $limit);
+        $occurrences = $this->resolver->resolve($entry, $from, $to, $limit, $includeExcluded);
 
         if ($contextStart && ! $this->params->bool('include_current', false)) {
             $occurrences = $occurrences->reject(fn (Occurrence $o) => $o->start->equalTo($contextStart));
@@ -325,9 +329,9 @@ class Calendar extends Tags
         return $labels;
     }
 
-    private function indexFromCache(Carbon $from, ?Carbon $to, ?int $limit, $tags, string $sort = 'asc', int $paginate = 0, string $pageName = 'page'): mixed
+    private function indexFromCache(Carbon $from, ?Carbon $to, ?int $limit, $tags, string $sort = 'asc', int $paginate = 0, string $pageName = 'page', bool $includeExcluded = false): mixed
     {
-        $occurrences = Occurrences::all()
+        $occurrences = Occurrences::all($includeExcluded)
             ->filter(fn (OccurrenceData $o) => $o->start->gte($from))
             ->when($to, fn ($c) => $c->filter(fn (OccurrenceData $o) => $o->start->lte($to)));
 
@@ -395,7 +399,7 @@ class Calendar extends Tags
      * pass an explicit `to` to shrink the working set, or use the cached default
      * collection.
      */
-    private function indexFromResolver(string $collection, Carbon $from, ?Carbon $to, ?int $limit, $tags, string $sort = 'asc', int $paginate = 0, string $pageName = 'page'): mixed
+    private function indexFromResolver(string $collection, Carbon $from, ?Carbon $to, ?int $limit, $tags, string $sort = 'asc', int $paginate = 0, string $pageName = 'page', bool $includeExcluded = false): mixed
     {
         $query = Entry::query()->where('collection', $collection);
 
@@ -422,7 +426,7 @@ class Calendar extends Tags
                 continue;
             }
 
-            $occurrences = $this->resolver->resolve($entry, $from, $to, $resolverLimit);
+            $occurrences = $this->resolver->resolve($entry, $from, $to, $resolverLimit, $includeExcluded);
             $allOccurrences = $allOccurrences->merge($occurrences);
         }
 
@@ -472,6 +476,9 @@ class Calendar extends Tags
             'is_recurring' => $occurrence->isRecurring,
             'recurrence_description' => $occurrence->recurrenceDescription,
             'url' => $occurrence->url(),
+            'is_excluded' => $occurrence->isExcluded,
+            'replacement_date' => $occurrence->replacementDate,
+            'replaces_date' => $occurrence->replacesDate,
         ]);
     }
 
@@ -491,6 +498,9 @@ class Calendar extends Tags
             'is_recurring' => $occurrence->isRecurring,
             'recurrence_description' => $occurrence->recurrenceDescription,
             'url' => $occurrence->url,
+            'is_excluded' => $occurrence->isExcluded,
+            'replacement_date' => $occurrence->replacementDate,
+            'replaces_date' => $occurrence->replacesDate,
         ];
     }
 }

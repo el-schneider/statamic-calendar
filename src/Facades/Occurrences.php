@@ -11,12 +11,12 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Facade;
 
 /**
- * @method static Collection<int, OccurrenceData> all()
- * @method static Collection<int, OccurrenceData> on(Carbon $date)
- * @method static Collection<int, OccurrenceData> between(Carbon $from, Carbon $to)
- * @method static Collection<int, OccurrenceData> forEntry(string|int $entryId)
- * @method static Collection<int, OccurrenceData> forOrganizer(string|int|null $organizerId)
- * @method static Collection<int, OccurrenceData> upcoming(int $limit = 10)
+ * @method static Collection<int, OccurrenceData> all(bool $includeExcluded = false)
+ * @method static Collection<int, OccurrenceData> on(Carbon $date, bool $includeExcluded = false)
+ * @method static Collection<int, OccurrenceData> between(Carbon $from, Carbon $to, bool $includeExcluded = false)
+ * @method static Collection<int, OccurrenceData> forEntry(string|int $entryId, bool $includeExcluded = false)
+ * @method static Collection<int, OccurrenceData> forOrganizer(string|int|null $organizerId, bool $includeExcluded = false)
+ * @method static Collection<int, OccurrenceData> upcoming(int $limit = 10, bool $includeExcluded = false)
  * @method static void rebuild()
  * @method static void clear()
  * @method static bool isBuilt()

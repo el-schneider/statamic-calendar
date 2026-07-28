@@ -11,12 +11,28 @@ use Statamic\Contracts\View\Antlers\Parser;
 beforeEach(function () {
     Carbon::setTestNow('2026-02-01 00:00:00');
 
-    $this->tagOccurrences = collect([
-        calendarTagOccurrence(),
+    $visible = calendarTagOccurrence();
+
+    $excluded = calendarTagOccurrence([
+        'id' => 'aaa-2026-02-12-100000',
+        'start' => '2026-02-12T10:00:00+00:00',
+        'end' => '2026-02-12T11:00:00+00:00',
+        'is_recurring' => true,
+        'recurrence_description' => 'weekly',
+        'url' => '',
+        'is_excluded' => true,
+        'replacement_date' => '2026-02-19T00:00:00+00:00',
     ]);
 
+    $this->tagOccurrences = collect([$visible]);
+
     $mock = Mockery::mock(OccurrenceCache::class);
-    $mock->shouldReceive('all')->andReturn($this->tagOccurrences);
+    // The tag forwards $includeExcluded through to the cache — mirror that
+    // boundary so tests can verify the param is actually propagated. Build
+    // fresh collections each call so the mocked returns can't alias.
+    $mock->shouldReceive('all')->with(false)->andReturnUsing(fn () => collect([$visible]));
+    $mock->shouldReceive('all')->with(true)->andReturnUsing(fn () => collect([$visible, $excluded]));
+    $mock->shouldReceive('all')->withNoArgs()->andReturnUsing(fn () => collect([$visible]));
     $this->app->instance(OccurrenceCache::class, $mock);
 });
 
@@ -102,4 +118,22 @@ test('ics_download_url falls back to context id when occurrence_id absent', func
     );
 
     expect($tag->icsDownloadUrl())->toContain('legacy-id');
+});
+
+test('index hides excluded occurrences by default', function () {
+    $result = calendarTag(['from' => '2026-02-01'])->index();
+
+    expect($result)->toHaveCount(1);
+    expect(collect($result)->first()['is_excluded'])->toBeFalse();
+});
+
+test('include_excluded surfaces excluded occurrences with metadata', function () {
+    $result = calendarTag(['from' => '2026-02-01', 'include_excluded' => true])->index();
+
+    expect($result)->toHaveCount(2);
+
+    $excluded = collect($result)->firstWhere('is_excluded', true);
+    expect($excluded)->not->toBeNull();
+    expect($excluded['replacement_date']?->format('Y-m-d'))->toBe('2026-02-19');
+    expect($excluded['url'])->toBe('');
 });

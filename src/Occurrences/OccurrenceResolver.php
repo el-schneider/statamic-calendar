@@ -14,7 +14,14 @@ use Statamic\Entries\Entry;
 
 class OccurrenceResolver
 {
-    public function resolve(Entry $entry, Carbon $from, ?Carbon $to = null, ?int $limit = null): Collection
+    /**
+     * Resolve occurrences for an entry within an optional window.
+     *
+     * Exclusions are emitted as occurrences carrying `isExcluded: true` when
+     * $includeExcluded is set; otherwise they are filtered out silently (the
+     * default, preserving backwards-compatible behavior).
+     */
+    public function resolve(Entry $entry, Carbon $from, ?Carbon $to = null, ?int $limit = null, bool $includeExcluded = false): Collection
     {
         $occurrences = collect();
 
@@ -23,7 +30,7 @@ class OccurrenceResolver
                 continue;
             }
 
-            $rowOccurrences = $this->resolveDateRow($entry, $dateRow, $from, $to, $limit);
+            $rowOccurrences = $this->resolveDateRow($entry, $dateRow, $from, $to, $limit, $includeExcluded);
             $occurrences = $occurrences->merge($rowOccurrences);
         }
 
@@ -55,7 +62,7 @@ class OccurrenceResolver
         );
     }
 
-    public function findOccurrenceOnDate(Entry $entry, Carbon $date): ?Occurrence
+    public function findOccurrenceOnDate(Entry $entry, Carbon $date, bool $includeExcluded = false): ?Occurrence
     {
         $tz = $this->timezone();
         $startOfDay = $date->copy()->setTimezone($tz)->startOfDay();
@@ -65,6 +72,7 @@ class OccurrenceResolver
             entry: $entry,
             from: $startOfDay,
             to: $endOfDay,
+            includeExcluded: $includeExcluded,
         );
 
         return $occurrences->first(function (Occurrence $o) use ($date, $tz) {
@@ -87,6 +95,7 @@ class OccurrenceResolver
                 Carbon::create(1, 1, 1, 0, 0, 0, $this->timezone()),
                 null,
                 null,
+                includeExcluded: false,
                 representativeAt: $at,
             ));
         }
@@ -102,7 +111,7 @@ class OccurrenceResolver
             ->first();
     }
 
-    private function resolveDateRow(Entry $entry, array $row, Carbon $from, ?Carbon $to, ?int $limit, ?Carbon $representativeAt = null): Collection
+    private function resolveDateRow(Entry $entry, array $row, Carbon $from, ?Carbon $to, ?int $limit, bool $includeExcluded = false, ?Carbon $representativeAt = null): Collection
     {
         $isRecurring = (bool) ($row['is_recurring'] ?? false);
 
@@ -110,10 +119,10 @@ class OccurrenceResolver
             return $this->resolveSingleDate($entry, $row, $from, $to);
         }
 
-        return $this->resolveRecurringDate($entry, $row, $from, $to, $limit, $representativeAt);
+        return $this->resolveRecurringDate($entry, $row, $from, $to, $limit, $includeExcluded, $representativeAt);
     }
 
-    private function resolveRecurringDate(Entry $entry, array $row, Carbon $from, ?Carbon $to, ?int $limit, ?Carbon $representativeAt = null): Collection
+    private function resolveRecurringDate(Entry $entry, array $row, Carbon $from, ?Carbon $to, ?int $limit, bool $includeExcluded = false, ?Carbon $representativeAt = null): Collection
     {
         if (! $to && ! $limit && ! $representativeAt) {
             $to = $from->copy()->addYear();
@@ -127,25 +136,18 @@ class OccurrenceResolver
 
         $tz = new DateTimeZone($this->timezone());
 
+        // No EXDATEs: excluded dates stay in the iteration so they can be
+        // emitted as first-class occurrences instead of silently vanishing.
         $rset = new RSet;
         $rset->addRRule($rruleParams);
 
-        foreach (($row['exclusions'] ?? []) as $exclusion) {
-            if (! is_array($exclusion) || empty($exclusion['date'])) {
-                continue;
-            }
+        $exclusions = $this->parseExclusions($row, $tz);
 
-            $day = $this->localDate($exclusion['date']);
-            if (! $day) {
-                continue;
-            }
-
-            $time = $this->localTime($exclusion['time'] ?? null)
-                ?? $this->localTime($row['start_time'] ?? null)
-                ?? '00:00';
-
-            $rset->addExDate(new DateTimeImmutable($day.' '.$time, $tz));
-        }
+        // Keyed by date only — the blueprint stores a bare replacement date,
+        // so linking back to the occurrence that replaces it is date-level.
+        $replacementsByDate = collect($exclusions)
+            ->filter(fn (array $e) => $e['replacement_date'] !== null)
+            ->keyBy(fn (array $e) => $e['replacement_date']->format('Y-m-d'));
 
         foreach (($row['additions'] ?? []) as $addition) {
             if (! is_array($addition) || empty($addition['date'])) {
@@ -168,6 +170,12 @@ class OccurrenceResolver
 
         foreach ($rset as $date) {
             $start = Carbon::instance($date);
+
+            $exclusion = $exclusions[$start->format('Y-m-d H:i:s')] ?? null;
+
+            if ($exclusion && ! $includeExcluded) {
+                continue;
+            }
 
             if ($start->lt($from)) {
                 continue;
@@ -192,6 +200,11 @@ class OccurrenceResolver
                 isAllDay: (bool) ($row['is_all_day'] ?? false),
                 isRecurring: true,
                 recurrenceDescription: $recurrenceDescription,
+                isExcluded: $exclusion !== null,
+                replacementDate: $exclusion['replacement_date'] ?? null,
+                replacesDate: $exclusion === null
+                    ? ($replacementsByDate[$start->format('Y-m-d')]['datetime'] ?? null)
+                    : null,
             );
 
             if ($representativeAt) {
@@ -210,6 +223,42 @@ class OccurrenceResolver
         }
 
         return $occurrences;
+    }
+
+    /**
+     * Exclusion rows keyed by their exact wall-clock datetime, matching how
+     * RSet dates are formatted during iteration.
+     *
+     * @return array<string, array{datetime: Carbon, replacement_date: ?Carbon}>
+     */
+    private function parseExclusions(array $row, DateTimeZone $tz): array
+    {
+        $parsed = [];
+
+        foreach (($row['exclusions'] ?? []) as $exclusion) {
+            if (! is_array($exclusion) || empty($exclusion['date'])) {
+                continue;
+            }
+
+            $day = $this->localDate($exclusion['date']);
+            if (! $day) {
+                continue;
+            }
+
+            $time = $this->localTime($exclusion['time'] ?? null)
+                ?? $this->localTime($row['start_time'] ?? null)
+                ?? '00:00';
+
+            $datetime = Carbon::parse($day.' '.$time, $tz);
+            $replacementDay = $this->localDate($exclusion['replacement_date'] ?? null);
+
+            $parsed[$datetime->format('Y-m-d H:i:s')] = [
+                'datetime' => $datetime,
+                'replacement_date' => $replacementDay ? Carbon::parse($replacementDay, $tz) : null,
+            ];
+        }
+
+        return $parsed;
     }
 
     private function getAdditionEndTime(array $additions, Carbon $date): ?string
