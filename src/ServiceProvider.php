@@ -126,14 +126,6 @@ class ServiceProvider extends AddonServiceProvider
 
     private function registerCalendarEntryClass(): void
     {
-        $collection = Collection::find(config('statamic-calendar.collection', 'events'));
-
-        if ($collection && method_exists($collection, 'entryClass')) {
-            $this->configureCollectionEntryClass($collection);
-
-            return;
-        }
-
         $stockClass = $this->usesEloquentEntries()
             ? \Statamic\Eloquent\Entries\Entry::class
             : \Statamic\Entries\Entry::class;
@@ -142,6 +134,15 @@ class ServiceProvider extends AddonServiceProvider
             return;
         }
 
+        if ($collection = Collection::find(config('statamic-calendar.collection', 'events'))) {
+            $this->configureCollectionEntryClass($collection);
+        }
+
+        // Statamic 6 resolves the entry class off the collection, but flat-file
+        // collections are rehydrated from YAML on every lookup, so the class set
+        // above only survives on drivers that keep the instance (eloquent).
+        // Binding the container class covers the Stache, and Statamic 5, which has
+        // no per-collection entry class at all.
         $entryClass = $this->calendarEntryClass();
         $this->app->bind(EntryContract::class, $entryClass);
 
