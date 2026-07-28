@@ -143,10 +143,9 @@
             <h1 class="text-3xl font-bold mb-8">Upcoming Events</h1>
 
             {{#
-                `include_excluded="true"` surfaces cancelled/rescheduled occurrences
-                with `is_excluded`, `replacement_date`, and `replaces_date` so you can
-                render strike-through cancellations and "moved to …" links inline.
-                Omit the parameter to keep the default behaviour (excluded dates hidden).
+                `include_excluded="true"` surfaces cancelled/rescheduled occurrences with `is_excluded`, `replacement_date`, and
+                `replaces_date` so you can render strike-through cancellations and "moved to …" links inline. Omit the parameter to keep
+                the default behaviour (excluded dates hidden).
             #}}
             <div class="space-y-4">
                 {{ calendar from="now" limit="10" include_excluded="true" }}
@@ -175,11 +174,15 @@
                                 {{ if start_time }}at {{ start format="g:i A" }}{{ /if }}
                                 {{ if is_all_day }}(All day){{ /if }}
                                 {{ if replaces_date }}
-                                    <span class="ml-2 text-xs text-zinc-400">(rescheduled from {{ replaces_date format="M j" }})</span>
+                                    <span class="ml-2 text-xs text-zinc-400">
+                                        (rescheduled from {{ replaces_date format="M j" }})
+                                    </span>
                                 {{ /if }}
                             </p>
                             {{ if is_recurring }}
-                                <p class="text-xs text-zinc-400 dark:text-zinc-500 mt-1">↻ {{ recurrence_description }}</p>
+                                <p class="text-xs text-zinc-400 dark:text-zinc-500 mt-1">
+                                    ↻ {{ recurrence_description }}
+                                </p>
                             {{ /if }}
                         </a>
                     {{ /if }}
