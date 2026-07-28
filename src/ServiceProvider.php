@@ -126,14 +126,6 @@ class ServiceProvider extends AddonServiceProvider
 
     private function registerCalendarEntryClass(): void
     {
-        $collection = Collection::find(config('statamic-calendar.collection', 'events'));
-
-        if ($collection && method_exists($collection, 'entryClass')) {
-            $this->configureCollectionEntryClass($collection);
-
-            return;
-        }
-
         $stockClass = $this->usesEloquentEntries()
             ? \Statamic\Eloquent\Entries\Entry::class
             : \Statamic\Entries\Entry::class;
@@ -142,6 +134,12 @@ class ServiceProvider extends AddonServiceProvider
             return;
         }
 
+        if ($collection = Collection::find(config('statamic-calendar.collection', 'events'))) {
+            $this->configureCollectionEntryClass($collection);
+        }
+
+        // The Stache rebuilds collections from its cached item, so the class set
+        // above only sticks on eloquent. The binding covers Stache and Statamic 5.
         $entryClass = $this->calendarEntryClass();
         $this->app->bind(EntryContract::class, $entryClass);
 
