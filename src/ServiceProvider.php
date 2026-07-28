@@ -41,6 +41,12 @@ class ServiceProvider extends AddonServiceProvider
 
         $this->mergeConfigFrom(__DIR__.'/../config/statamic-calendar.php', 'statamic-calendar');
 
+        // Statamic 6 only unserializes allowlisted classes out of Laravel's cache;
+        // without this, cached Stache entries come back as __PHP_Incomplete_Class.
+        if (method_exists($this, 'registerSerializableClasses')) {
+            $this->registerSerializableClasses([CalendarEntry::class, CalendarEloquentEntry::class]);
+        }
+
         $this->app->singleton(OccurrenceCache::class);
     }
 
