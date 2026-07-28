@@ -283,3 +283,31 @@ test('occurrences outside the window are still filtered when excluded', function
     expect($occurrences->every(fn (Occurrence $o) => $o->start->gte(Carbon::parse('2026-03-17'))))->toBeTrue();
     expect($occurrences->contains(fn (Occurrence $o) => $o->start->format('Y-m-d') === '2026-03-16'))->toBeFalse();
 });
+
+test('limit ignores excluded occurrences when they are hidden', function () {
+    // Mondays 03-02, 03-09, 03-16 (excluded), 03-23, 03-30 + addition 03-20.
+    $occurrences = (new OccurrenceResolver)->resolve(
+        entryWithDates([sampleRescheduledRow()]),
+        Carbon::parse('2026-03-01'),
+        null,
+        3,
+    );
+
+    expect($occurrences->pluck('start')->map(fn ($d) => $d->format('Y-m-d'))->all())
+        ->toBe(['2026-03-02', '2026-03-09', '2026-03-20']);
+});
+
+test('limit counts excluded occurrences when the caller opts in', function () {
+    $occurrences = (new OccurrenceResolver)->resolve(
+        entryWithDates([sampleRescheduledRow()]),
+        Carbon::parse('2026-03-01'),
+        null,
+        3,
+        includeExcluded: true,
+    );
+
+    // The excluded 03-16 consumes a slot — `limit` means "N items", not
+    // "N visible items", otherwise the result size is unbounded.
+    expect($occurrences->pluck('start')->map(fn ($d) => $d->format('Y-m-d'))->all())
+        ->toBe(['2026-03-02', '2026-03-09', '2026-03-16']);
+});
