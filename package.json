@@ -1,4 +1,5 @@
 {
+  "name": "statamic-calendar",
   "private": true,
   "scripts": {
     "format:check": "prettier --check .",

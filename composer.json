@@ -39,9 +39,9 @@
         "statamic/cms": "^5.74.0 || ^6.20.3"
     },
     "require-dev": {
-        "orchestra/testbench": "^9.0 || ^10.0",
-        "pestphp/pest": "^4.3",
-        "pestphp/pest-plugin-laravel": "^4.0",
+        "orchestra/testbench": "^9.0 || ^10.0 || ^11.0",
+        "pestphp/pest": "^4.3 || ^5.0",
+        "pestphp/pest-plugin-laravel": "^4.0 || ^5.0",
         "laravel/pint": "^1.27"
     },
     "config": {
