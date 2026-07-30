@@ -1,16 +1,14 @@
-# AGENTS.md
+## Project Overview
 
-Statamic Calendar — recurring events and cached occurrences for Statamic v5/v6.
+**Statamic Calendar**. Recurring events and cached occurrences for Statamic v5/v6.
 
-## Guidelines
+## Contributing
 
 - Prefer inline documentation (docblocks, config comments, example templates) over README. The README should point to sources, not duplicate them.
-- Pre-v1: prefer idiomatic Statamic APIs over preserving accidental BC. reassess this once v1 stabilizes.
-
-## Sandboxes
-
-- **v5**: `http://statamic-calendar-test.test`
-- **v6**: `http://statamic-calendar-test-v6.test`
-- **CP**: `agent@agent.md` / `agent`
-- **Artisan**: `php ../statamic-calendar-test/artisan`
-- **Logs**: `../statamic-calendar-test/storage/logs/laravel.log`
+- Pre-v1: prefer idiomatic Statamic APIs over preserving accidental BC. Reassess this once v1 stabilizes.
+- Comments say why, not what changed. History belongs in the PR.
+- Template/tag output changes: verify rendered output in a real Statamic app and say what you checked.
+- Add nothing you can derive or reuse.
+- Fix the cause, not the reported symptom.
+- No abstraction with a single caller.
+- Let failures surface. No try/catch for tidiness.
