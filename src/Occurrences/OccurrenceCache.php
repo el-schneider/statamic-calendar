@@ -82,6 +82,8 @@ class OccurrenceCache
     }
 
     /**
+     * Includes occurrences in progress, then orders by their start time.
+     *
      * @return Collection<int, OccurrenceData>
      */
     public function upcoming(int $limit = 10, bool $includeExcluded = false): Collection

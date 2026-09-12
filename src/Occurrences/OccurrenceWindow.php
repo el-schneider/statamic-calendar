@@ -79,11 +79,16 @@ class OccurrenceWindow
 
     public static function now(): Carbon
     {
-        return Carbon::now((string) (
+        return Carbon::now(self::timezone());
+    }
+
+    public static function timezone(): string
+    {
+        return (string) (
             config('statamic-calendar.timezone')
             ?: config('statamic.system.display_timezone')
             ?: config('app.timezone')
             ?: 'UTC'
-        ));
+        );
     }
 }

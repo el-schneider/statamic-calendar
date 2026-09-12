@@ -428,12 +428,7 @@ class OccurrenceResolver
      */
     private function timezone(): string
     {
-        return (string) (
-            config('statamic-calendar.timezone')
-            ?: config('statamic.system.display_timezone')
-            ?: config('app.timezone')
-            ?: 'UTC'
-        );
+        return OccurrenceWindow::timezone();
     }
 
     /**
