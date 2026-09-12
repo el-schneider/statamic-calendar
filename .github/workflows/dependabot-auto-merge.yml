@@ -1,5 +1,5 @@
 name: dependabot-auto-merge
-on: pull_request_target
+on: pull_request_target # zizmor: ignore[dangerous-triggers] No pull request code runs.
 
 permissions:
   pull-requests: write
@@ -8,7 +8,7 @@ jobs:
   dependabot:
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    if: ${{ github.actor == 'dependabot[bot]' }}
+    if: ${{ github.event.pull_request.user.login == 'dependabot[bot]' }}
     steps:
       - name: Dependabot metadata
         id: metadata
