@@ -8,7 +8,7 @@ use ElSchneider\StatamicCalendar\Occurrences\OccurrenceData;
 use ElSchneider\StatamicCalendar\Occurrences\OccurrenceResolver;
 use ElSchneider\StatamicCalendar\Tags\Calendar;
 use Statamic\Contracts\View\Antlers\Parser;
-use Statamic\Contracts\Entries\Entry as Entry;
+use Statamic\Entries\Entry;
 use Statamic\Facades\Entry as EntryFacade;
 
 beforeEach(function () {
@@ -40,7 +40,11 @@ beforeEach(function () {
     $this->app->instance(OccurrenceCache::class, $mock);
 });
 
-afterEach(fn () => Carbon::setTestNow());
+afterEach(function () {
+    Carbon::setTestNow();
+    config()->set('statamic-calendar.url.strategy', 'date_segments');
+    request()->query->replace([]);
+});
 
 function calendarTag(array $params = [], array $context = [], ?OccurrenceResolver $resolver = null): Calendar
 {
@@ -137,6 +141,8 @@ function occurrenceTagEntry(bool $published = true): Entry
     $entry->shouldReceive('published')->andReturn($published);
     $entry->shouldReceive('id')->andReturn('entry-id');
     $entry->shouldReceive('url')->andReturn('/events/event');
+    $entry->shouldReceive('slug')->andReturn('event');
+    $entry->shouldReceive('toAugmentedArray')->andReturn(['id' => 'entry-id', 'title' => 'Event']);
 
     return $entry;
 }
@@ -167,7 +173,8 @@ test('occurrence resolves the requested query-string date', function () {
     $result = calendarTag(context: ['id' => 'entry-id'], resolver: $resolver)->occurrence();
 
     expect($result)->toHaveCount(1)
-        ->and(array_keys($result[0]))->toBe(['occurrence_id', 'start', 'end', 'is_all_day', 'is_recurring', 'recurrence_description', 'url', 'is_excluded', 'replacement_date', 'replaces_date'])
+        ->and($result[0]['occurrence_id'])->toBe('entry-id-2026-02-12-100000')
+        ->and($result[0]['occurrence_url'])->toBe($result[0]['url'])
         ->and($result[0]['start']->toDateString())->toBe('2026-02-12');
 });
 
@@ -184,6 +191,35 @@ test('occurrence falls back to representative when the requested date does not r
 
     expect(calendarTag(context: ['id' => 'entry-id'], resolver: $resolver)->occurrence()[0]['start']->toDateString())
         ->toBe('2026-02-19');
+});
+
+test('occurrence falls back to representative for an invalid query-string date', function () {
+    config()->set('statamic-calendar.url.strategy', 'query_string');
+    request()->query->set('date', 'invalid');
+
+    $entry = occurrenceTagEntry();
+    EntryFacade::shouldReceive('find')->with('entry-id')->andReturn($entry);
+    $occurrence = resolvedTagOccurrence($entry, '2026-02-19');
+    $resolver = Mockery::mock(OccurrenceResolver::class);
+    $resolver->shouldNotReceive('findOccurrenceOnDate');
+    $resolver->shouldReceive('representative')->with($entry)->andReturn($occurrence);
+
+    expect(calendarTag(context: ['id' => 'entry-id'], resolver: $resolver)->occurrence()[0]['start']->toDateString())
+        ->toBe('2026-02-19');
+});
+
+test('occurrence resolves the routed date from context', function () {
+    config()->set('statamic-calendar.url.strategy', 'date_segments');
+
+    $entry = occurrenceTagEntry();
+    EntryFacade::shouldReceive('find')->with('entry-id')->andReturn($entry);
+    $occurrence = resolvedTagOccurrence($entry, '2026-02-12');
+    $resolver = Mockery::mock(OccurrenceResolver::class);
+    $resolver->shouldReceive('findOccurrenceOnDate')->withArgs(fn ($foundEntry, Carbon $date) => $foundEntry === $entry && $date->toDateString() === '2026-02-12')->andReturn($occurrence);
+    $resolver->shouldNotReceive('representative');
+
+    expect(calendarTag(context: ['id' => 'entry-id', 'start' => Carbon::parse('2026-02-12')], resolver: $resolver)->occurrence()[0]['start']->toDateString())
+        ->toBe('2026-02-12');
 });
 
 test('occurrence resolves the next upcoming occurrence without a date parameter', function () {

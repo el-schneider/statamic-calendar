@@ -50,45 +50,6 @@ class Calendar extends Tags
     }
 
     /**
-     * Resolves the current occurrence for an entry based on a date query param.
-     *
-     * Usage: {{ calendar:current_occurrence }} ... {{ /calendar:current_occurrence }}
-     *
-     * Each item contains occurrence_id, url, start, end, is_all_day,
-     * is_recurring, recurrence_description, and occurrence_url (an alias of url).
-     *
-     * @return list<array<string, mixed>>
-     */
-    public function currentOccurrence(): array
-    {
-        $param = (string) config('statamic-calendar.url.query_string.param', 'date');
-        $dateString = request()->query($param);
-
-        $entryId = $this->context->get('id');
-
-        if ($entryId instanceof \Statamic\Fields\Value) {
-            $entryId = $entryId->value();
-        }
-
-        $entry = (is_string($entryId) || is_int($entryId)) ? Entry::find((string) $entryId) : null;
-
-        if (! $entry || ! $entry->published() || ! $dateString) {
-            return [];
-        }
-
-        $date = Carbon::parse((string) $dateString);
-        $occurrence = $this->resolver->findOccurrenceOnDate($entry, $date);
-
-        if (! $occurrence) {
-            return [];
-        }
-
-        $item = $this->occurrenceToArray($occurrence);
-
-        return [[...$item, 'occurrence_url' => $item['url']]];
-    }
-
-    /**
      * Usage: {{ calendar:for_organizer :organizer="id" limit="5" }}
      */
     public function forOrganizer(): mixed
@@ -199,10 +160,15 @@ class Calendar extends Tags
     /**
      * Resolves the occurrence a show page should display for the entry in context.
      *
-     * A valid date query parameter takes precedence; otherwise this returns the
-     * resolver's representative occurrence (next upcoming, or the most recent).
+     * A valid date query parameter takes precedence, followed by the routed
+     * occurrence date, then the resolver's representative occurrence.
+     *
+     * Each item has the same fields as `next_occurrences`, plus `occurrence_url`
+     * as an alias of `url` for the bundled show template.
      *
      * Usage: {{ calendar:occurrence }} ... {{ /calendar:occurrence }}
+     *
+     * @return list<array<string, mixed>>
      */
     public function occurrence(): array
     {
@@ -217,12 +183,25 @@ class Calendar extends Tags
         if (config('statamic-calendar.url.strategy', 'date_segments') === 'query_string') {
             $param = (string) config('statamic-calendar.url.query_string.param', 'date');
             $date = request()->query($param);
-            $occurrence = $date ? $this->resolver->findOccurrenceOnDate($entry, Carbon::parse((string) $date)) : null;
+            $format = (string) config('statamic-calendar.url.query_string.format', 'Y-m-d');
+
+            if (is_string($date) && Carbon::canBeCreatedFromFormat($date, $format)) {
+                $occurrence = $this->resolver->findOccurrenceOnDate($entry, Carbon::createFromFormat($format, $date));
+            }
         }
 
+        $occurrence ??= ($contextStart = $this->getContextStart())
+            ? $this->resolver->findOccurrenceOnDate($entry, $contextStart)
+            : null;
         $occurrence ??= $this->resolver->representative($entry);
 
-        return $occurrence ? [$this->showOccurrenceToArray($occurrence)] : [];
+        if (! $occurrence) {
+            return [];
+        }
+
+        $item = $this->occurrenceToArray($occurrence);
+
+        return [[...$item, 'occurrence_url' => $item['url']]];
     }
 
     public function nextOccurrences(): array
@@ -483,25 +462,6 @@ class Calendar extends Tags
         }
 
         return (is_string($entryId) || is_int($entryId)) ? Entry::find((string) $entryId) : null;
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function showOccurrenceToArray(Occurrence $occurrence): array
-    {
-        return [
-            'occurrence_id' => OccurrenceData::composeId($occurrence->entry->id(), $occurrence->start),
-            'start' => $occurrence->start,
-            'end' => $occurrence->end,
-            'is_all_day' => $occurrence->isAllDay,
-            'is_recurring' => $occurrence->isRecurring,
-            'recurrence_description' => $occurrence->recurrenceDescription,
-            'url' => $occurrence->url(),
-            'is_excluded' => $occurrence->isExcluded,
-            'replacement_date' => $occurrence->replacementDate,
-            'replaces_date' => $occurrence->replacesDate,
-        ];
     }
 
     private function getContextStart(): ?Carbon
