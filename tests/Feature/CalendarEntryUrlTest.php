@@ -103,8 +103,11 @@ test('query string events without a native route have no public or preview url',
         ['start_date' => '2026-07-12', 'start_time' => '18:00'],
     ]);
 
+    $occurrence = new Occurrence($entry, Carbon::parse('2026-07-12 18:00'), null, false, false);
+
     expect($entry->url())->toBeNull()
-        ->and($entry->livePreviewUrl())->toBeNull();
+        ->and($entry->livePreviewUrl())->toBeNull()
+        ->and($occurrence->url())->toBe('');
 });
 
 test('event urls fall back to the most recent occurrence', function () {
