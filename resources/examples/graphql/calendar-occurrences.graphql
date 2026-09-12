@@ -1,0 +1,27 @@
+query CalendarOccurrences($from: String!, $to: String!, $page: Int!) {
+    calendarOccurrences(
+        from: $from
+        to: $to
+        status: [upcoming, ongoing]
+        tags: ["fitness", "wellness"]
+        organizer: "org-1"
+        sort: asc
+        limit: 15
+        page: $page
+    ) {
+        data {
+            id
+            title
+            start
+            end
+            tags
+            attendance
+            venue {
+                name
+            }
+        }
+        total
+        per_page
+        current_page
+    }
+}

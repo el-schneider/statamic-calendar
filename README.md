@@ -11,6 +11,7 @@ Recurring events and cached occurrences for Statamic. Works with Statamic 5 and 
 - Antlers tags for listing, current occurrence, next occurrences, and month grid
 - Month calendar view — server-rendered, navigable via query params, no JS required
 - JSON REST API for JS-based calendar components (opt-in)
+- Native GraphQL occurrence query (opt-in)
 - iCalendar (.ics) feed for calendar app subscriptions + per-event "Add to calendar" downloads
 - Cache-build event for adding custom occurrence fields to tag/API output
 - Pagination for REST API responses and Antlers occurrence lists
@@ -250,6 +251,10 @@ fetch('/api/calendar/occurrences?tags=music,art&organizer=org-123')
 ### CORS
 
 The API uses Laravel's `api` middleware group, so cross-origin requests are handled by your app's `config/cors.php`. Laravel's default config already allows `api/*` paths from all origins — adjust as needed.
+
+## GraphQL
+
+Enable Statamic GraphQL with `STATAMIC_GRAPHQL_ENABLED=true` and this addon's query with `STATAMIC_CALENDAR_GRAPHQL_ENABLED=true`. The addon intentionally exposes cached core calendar fields independently from collection permissions; native GraphQL endpoint authorization still applies. Dates are ISO 8601 strings. See the [published GraphQL example](resources/examples/graphql/README.md) for the paginated query and typed cached extras.
 
 ## Custom Occurrence Fields
 
