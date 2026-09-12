@@ -39,7 +39,7 @@ class Calendar extends Tags
     public function index(): mixed
     {
         $collection = (string) $this->params->get('collection', config('statamic-calendar.collection', 'events'));
-        $statuses = $this->statuses();
+        $statuses = OccurrenceWindow::parseStatuses($this->params->get('status'));
         // Status is a classification, not a window: it must not inherit the upcoming floor.
         $from = $this->params->has('from') ? Carbon::parse((string) $this->params->get('from')) : ($statuses ? null : Carbon::now());
         $to = $this->params->has('to') ? Carbon::parse((string) $this->params->get('to')) : null;
@@ -69,7 +69,7 @@ class Calendar extends Tags
     {
         $organizerId = $this->params->get('organizer') ?? $this->context->get('id');
         $limit = $this->params->int('limit', 5);
-        $statuses = $this->statuses();
+        $statuses = OccurrenceWindow::parseStatuses($this->params->get('status'));
         $from = $this->params->has('from') ? Carbon::parse((string) $this->params->get('from')) : ($statuses ? null : Carbon::now());
         $paginate = $this->params->int('paginate');
         $pageName = (string) $this->params->get('page_name', 'page');
@@ -383,12 +383,6 @@ class Calendar extends Tags
         }
 
         return $this->output($mapped);
-    }
-
-    /** @return array<string> */
-    private function statuses(): array
-    {
-        return OccurrenceWindow::parseStatuses($this->params->get('status'));
     }
 
     /**

@@ -47,7 +47,7 @@ class OccurrenceResolver
     public function representative(Entry $entry): ?Occurrence
     {
         $now = Carbon::now($this->timezone());
-        $occurrences = $this->representativeCandidates($entry, $now);
+        $occurrences = $this->candidates($entry, $now);
 
         return $this->firstUpcoming($occurrences, $now)
             ?? $occurrences->sortBy(fn (Occurrence $o) => $o->start)->last();
@@ -57,7 +57,7 @@ class OccurrenceResolver
     {
         $from ??= Carbon::now($this->timezone());
 
-        return $this->nextCandidates($entry, $from)
+        return $this->candidates($entry, $from, strictlyFuture: true)
             ->filter(fn (Occurrence $o) => $o->start->gt($from))
             ->sortBy(fn (Occurrence $o) => $o->start)
             ->first();
@@ -81,7 +81,7 @@ class OccurrenceResolver
         });
     }
 
-    private function representativeCandidates(Entry $entry, Carbon $at): Collection
+    private function candidates(Entry $entry, Carbon $at, bool $strictlyFuture = false): Collection
     {
         $occurrences = collect();
 
@@ -97,7 +97,8 @@ class OccurrenceResolver
                 null,
                 null,
                 includeExcluded: false,
-                representativeAt: $at,
+                representativeAt: $strictlyFuture ? null : $at,
+                nextAfter: $strictlyFuture ? $at : null,
             ));
         }
 
@@ -110,29 +111,6 @@ class OccurrenceResolver
             ->filter(fn (Occurrence $o) => OccurrenceWindow::matches($o, $from))
             ->sortBy(fn (Occurrence $o) => $o->start)
             ->first();
-    }
-
-    private function nextCandidates(Entry $entry, Carbon $after): Collection
-    {
-        $occurrences = collect();
-
-        foreach ($this->dates($entry) as $dateRow) {
-            if (! is_array($dateRow)) {
-                continue;
-            }
-
-            $occurrences = $occurrences->merge($this->resolveDateRow(
-                $entry,
-                $dateRow,
-                Carbon::create(1, 1, 1, 0, 0, 0, $this->timezone()),
-                null,
-                null,
-                includeExcluded: false,
-                nextAfter: $after,
-            ));
-        }
-
-        return $occurrences;
     }
 
     private function resolveDateRow(Entry $entry, array $row, Carbon $from, ?Carbon $to, ?int $limit, bool $includeExcluded = false, ?Carbon $representativeAt = null, ?Carbon $nextAfter = null): Collection

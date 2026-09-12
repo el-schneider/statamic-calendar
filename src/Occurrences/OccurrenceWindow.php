@@ -34,11 +34,6 @@ class OccurrenceWindow
             && (! $to || $occurrence->start->lte($to));
     }
 
-    public static function isOngoing(Occurrence|OccurrenceData $occurrence, Carbon $at): bool
-    {
-        return $occurrence->start->lte($at) && self::effectiveEnd($occurrence)->gte($at);
-    }
-
     /**
      * @return array<string> Any of upcoming, ongoing, or past.
      *
@@ -67,14 +62,13 @@ class OccurrenceWindow
     /** @param array<string> $statuses */
     public static function hasStatus(Occurrence|OccurrenceData $occurrence, array $statuses, Carbon $now): bool
     {
-        return collect($statuses)->contains(function (string $status) use ($occurrence, $now) {
-            return match ($status) {
-                'upcoming' => $occurrence->start->gt($now),
-                'ongoing' => self::isOngoing($occurrence, $now),
-                'past' => self::effectiveEnd($occurrence)->lt($now),
-                default => false,
-            };
-        });
+        $status = match (true) {
+            $occurrence->start->gt($now) => 'upcoming',
+            self::effectiveEnd($occurrence)->lt($now) => 'past',
+            default => 'ongoing',
+        };
+
+        return in_array($status, $statuses, true);
     }
 
     public static function now(): Carbon
