@@ -435,10 +435,11 @@ Key options in `config/statamic-calendar.php`:
 | `ics.calendar_name`        | Calendar name in .ics output      | `APP_NAME`                      |
 | `cache.key`                | Cache store key                   | `statamic_calendar.occurrences` |
 | `cache.days_ahead`         | Recurrence expansion window       | `365`                           |
+| `cache.rebuild_schedule`   | Laravel schedule frequency, or `false` to disable | `daily` |
 
 ## Cache
 
-Occurrences are materialized into Laravel's cache for fast listing. The cache rebuilds automatically when entries are saved or deleted.
+Occurrences are materialized into Laravel's cache for fast listing. The cache rebuilds automatically when entries are saved or deleted, and daily so recurring events continue filling the rolling `cache.days_ahead` window. Set `cache.rebuild_schedule` to `false` when your application manages rebuilds itself.
 
 Manual rebuild:
 

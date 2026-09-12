@@ -11,6 +11,7 @@ use ElSchneider\StatamicCalendar\Http\Controllers\ApiOccurrenceController;
 use ElSchneider\StatamicCalendar\Http\Controllers\IcsController;
 use ElSchneider\StatamicCalendar\Listeners\RebuildOccurrenceCacheOnEntryChange;
 use ElSchneider\StatamicCalendar\Occurrences\OccurrenceCache;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Route;
 use Statamic\Contracts\Entries\Entry as EntryContract;
@@ -82,6 +83,16 @@ class ServiceProvider extends AddonServiceProvider
         $this->publishes([
             __DIR__.'/../resources/examples' => resource_path('vendor/statamic-calendar/examples'),
         ], 'statamic-calendar-examples');
+    }
+
+    /**
+     * Rebuild the rolling cache window even when no calendar entry changes.
+     */
+    protected function schedule(Schedule $schedule): void
+    {
+        if ($frequency = config('statamic-calendar.cache.rebuild_schedule', 'daily')) {
+            $schedule->command('occurrences:rebuild')->{$frequency}();
+        }
     }
 
     protected function registerRoutes(): void
