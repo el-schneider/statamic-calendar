@@ -35,7 +35,7 @@
         }
     },
     "require": {
-        "rlanvin/php-rrule": "^2.6",
+        "rlanvin/php-rrule": "^3.0",
         "statamic/cms": "^5.74.0 || ^6.20.3"
     },
     "require-dev": {
@@ -60,7 +60,5 @@
                 "ElSchneider\\StatamicCalendar\\ServiceProvider"
             ]
         }
-    },
-    "minimum-stability": "dev",
-    "prefer-stable": true
+    }
 }
