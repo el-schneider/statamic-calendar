@@ -47,6 +47,11 @@ class Occurrence
             $format = (string) $this->cfg('statamic-calendar.url.query_string.format', 'Y-m-d');
 
             $entryUrl ??= $this->entry->urlWithoutRedirect();
+
+            if ($entryUrl === null) {
+                return '';
+            }
+
             $separator = str_contains($entryUrl, '?') ? '&' : '?';
 
             return $entryUrl.$separator.urlencode($param).'='.urlencode($this->start->format($format));
