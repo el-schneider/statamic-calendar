@@ -53,8 +53,13 @@ class Calendar extends Tags
      * Resolves the current occurrence for an entry based on a date query param.
      *
      * Usage: {{ calendar:current_occurrence }} ... {{ /calendar:current_occurrence }}
+     *
+     * Each item contains occurrence_id, url, start, end, is_all_day,
+     * is_recurring, recurrence_description, and occurrence_url (an alias of url).
+     *
+     * @return list<array<string, mixed>>
      */
-    public function currentOccurrence(): mixed
+    public function currentOccurrence(): array
     {
         $param = (string) config('statamic-calendar.url.query_string.param', 'date');
         $dateString = request()->query($param);
@@ -68,25 +73,19 @@ class Calendar extends Tags
         $entry = (is_string($entryId) || is_int($entryId)) ? Entry::find((string) $entryId) : null;
 
         if (! $entry || ! $entry->published() || ! $dateString) {
-            return '';
+            return [];
         }
 
         $date = Carbon::parse((string) $dateString);
         $occurrence = $this->resolver->findOccurrenceOnDate($entry, $date);
 
         if (! $occurrence) {
-            return '';
+            return [];
         }
 
-        return $this->parse([
-            'occurrence_id' => OccurrenceData::composeId($entry->id(), $occurrence->start),
-            'start' => $occurrence->start,
-            'end' => $occurrence->end,
-            'is_all_day' => $occurrence->isAllDay,
-            'is_recurring' => $occurrence->isRecurring,
-            'recurrence_description' => $occurrence->recurrenceDescription,
-            'occurrence_url' => $occurrence->url(),
-        ]);
+        $item = $this->occurrenceToArray($occurrence);
+
+        return [[...$item, 'occurrence_url' => $item['url']]];
     }
 
     /**
