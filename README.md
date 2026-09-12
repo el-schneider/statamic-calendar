@@ -254,7 +254,47 @@ The API uses Laravel's `api` middleware group, so cross-origin requests are hand
 
 ## GraphQL
 
-Enable Statamic GraphQL with `STATAMIC_GRAPHQL_ENABLED=true` and this addon's query with `STATAMIC_CALENDAR_GRAPHQL_ENABLED=true`. The addon intentionally exposes cached core calendar fields independently from collection permissions; native GraphQL endpoint authorization still applies. Dates are ISO 8601 strings. See the [published GraphQL example](resources/examples/graphql/README.md) for the paginated query and typed cached extras.
+Enable Statamic GraphQL with `STATAMIC_GRAPHQL_ENABLED=true` and this addon's query with `STATAMIC_CALENDAR_GRAPHQL_ENABLED=true`. Requires Statamic Pro. The addon exposes cached core calendar fields independently from collection permissions; native GraphQL endpoint authorization still applies.
+
+Filters are arguments on `calendarOccurrences`. Query events overlapping a date range, with pagination:
+
+```graphql
+{
+    calendarOccurrences(
+        from: "2026-09-01T00:00:00Z"
+        to: "2026-09-30T23:59:59Z"
+        limit: 20
+        page: 1
+    ) {
+        total
+        current_page
+        data {
+            title
+            start
+            end
+            url
+        }
+    }
+}
+```
+
+Bounds are inclusive and match overlapping events, not just events starting within the range. A bare `to` date means midnight at its start; include a time to cover the full day.
+
+Combine filters to find upcoming or ongoing music/art events, latest starts first:
+
+```graphql
+{
+    calendarOccurrences(status: [upcoming, ongoing], tags: ["music", "art"], sort: desc, limit: 5) {
+        data {
+            title
+            start
+            organizer_title
+        }
+    }
+}
+```
+
+Tags match any supplied slug. Other arguments include `organizer` (entry ID) and `include_excluded` (cancelled or rescheduled-away occurrences). Without `from` or a status filter, results start from now and include ongoing events. See the [published GraphQL example](resources/examples/graphql/README.md) for typed custom fields.
 
 ## Custom Occurrence Fields
 
