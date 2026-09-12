@@ -350,7 +350,7 @@ Lists occurrences from the cache (or resolves them live for non-default collecti
 
 By default, `{{ calendar }}` lists events happening now or starting later. A workshop running from 18:00 to 20:00 stays in the list at 19:00.
 
-`from` and `to` select events that overlap the requested period, not just events that start within it. An exhibition running from August to October therefore appears in a September query. Events ending exactly at `from` or starting exactly at `to` are included.
+`from` and `to` select events that overlap the requested period, not just events that start within it. A three-day event running Monday through Wednesday therefore appears in a query for Tuesday. Events ending exactly at `from` or starting exactly at `to` are included.
 
 Use `status` when you want to distinguish events by whether they have finished:
 
