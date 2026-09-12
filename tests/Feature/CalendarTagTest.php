@@ -7,8 +7,10 @@ use ElSchneider\StatamicCalendar\Occurrences\OccurrenceCache;
 use ElSchneider\StatamicCalendar\Occurrences\OccurrenceData;
 use ElSchneider\StatamicCalendar\Occurrences\OccurrenceResolver;
 use ElSchneider\StatamicCalendar\Tags\Calendar;
+use Illuminate\Support\Facades\File;
 use Statamic\Contracts\View\Antlers\Parser;
 use Statamic\Entries\Entry;
+use Statamic\Facades\Collection;
 use Statamic\Facades\Entry as EntryFacade;
 
 beforeEach(function () {
@@ -37,6 +39,11 @@ beforeEach(function () {
     $mock->shouldReceive('all')->with(false)->andReturnUsing(fn () => collect([$visible]));
     $mock->shouldReceive('all')->with(true)->andReturnUsing(fn () => collect([$visible, $excluded]));
     $mock->shouldReceive('all')->withNoArgs()->andReturnUsing(fn () => collect([$visible]));
+    $mock->shouldReceive('status')->andReturnUsing(function (array $statuses, Carbon $now, bool $includeExcluded = false) use ($excluded) {
+        $occurrences = $includeExcluded ? $this->tagOccurrences->concat([$excluded]) : $this->tagOccurrences;
+
+        return $occurrences->filter(fn (OccurrenceData $occurrence) => ElSchneider\StatamicCalendar\Occurrences\OccurrenceWindow::hasStatus($occurrence, $statuses, $now))->values();
+    });
     $this->app->instance(OccurrenceCache::class, $mock);
 });
 
@@ -44,6 +51,8 @@ afterEach(function () {
     Carbon::setTestNow();
     config()->set('statamic-calendar.url.strategy', 'date_segments');
     request()->query->replace([]);
+    File::delete(__DIR__.'/../__fixtures__/content/collections/workshops.yaml');
+    File::deleteDirectory(__DIR__.'/../__fixtures__/content/collections/workshops');
 });
 
 function calendarTag(array $params = [], array $context = [], ?OccurrenceResolver $resolver = null): Calendar
@@ -90,6 +99,49 @@ test('loop items expose composed occurrence_id alongside entry id', function () 
 
     expect($item['id'])->toBe('aaa');
     expect($item['occurrence_id'])->toBe('aaa-2026-02-05-100000');
+});
+
+test('status-only custom collection queries span modern recurring events', function () {
+    $collection = Collection::make('workshops')->routes('/workshops/{slug}');
+    $collection->save();
+
+    foreach ([
+        ['slug' => 'past-series', 'title' => 'Past series', 'dates' => [[
+            'start_date' => '2026-01-01',
+            'start_time' => '18:00',
+            'is_recurring' => true,
+            'frequency' => 'WEEKLY',
+            'recurrence_end' => 'count',
+            'count' => 12,
+        ]]],
+        ['slug' => 'ongoing', 'title' => 'Ongoing event', 'dates' => [[
+            'start_date' => '2026-01-31',
+            'end_date' => '2026-02-02',
+            'is_all_day' => true,
+            'is_recurring' => false,
+        ]]],
+    ] as $data) {
+        EntryFacade::make()
+            ->id($data['slug'])
+            ->collection($collection)
+            ->slug($data['slug'])
+            ->published(true)
+            ->data($data)
+            ->save();
+    }
+
+    $titles = fn ($items) => collect($items)->map(fn (array $item) => $item['title']->value())->all();
+
+    expect(Collection::find('workshops'))->not->toBeNull()
+        ->and(EntryFacade::query()->where('collection', 'workshops')->get())->not->toBeEmpty()
+        ->and($titles(calendarTag(['collection' => 'workshops', 'status' => 'past'])->index()))
+        ->toContain('Past series')
+        ->and($titles(calendarTag(['collection' => 'workshops', 'status' => 'upcoming', 'limit' => 1])->index()))
+        ->toContain('Past series')
+        ->and($titles(calendarTag(['collection' => 'workshops', 'status' => 'ongoing'])->index()))
+        ->toContain('Ongoing event')
+        ->and(calendarTag(['collection' => 'workshops', 'status' => 'past', 'paginate' => 2])->index()['occurrences'])
+        ->not->toBeEmpty();
 });
 
 test('ics_download_url uses context occurrence_id when present', function () {
@@ -141,6 +193,7 @@ function occurrenceTagEntry(bool $published = true): Entry
     $entry->shouldReceive('published')->andReturn($published);
     $entry->shouldReceive('id')->andReturn('entry-id');
     $entry->shouldReceive('url')->andReturn('/events/event');
+    $entry->shouldReceive('urlWithoutRedirect')->andReturn('/events/event');
     $entry->shouldReceive('slug')->andReturn('event');
     $entry->shouldReceive('toAugmentedArray')->andReturn(['id' => 'entry-id', 'title' => 'Event']);
 
@@ -258,6 +311,35 @@ test('occurrence returns no items for missing or unpublished entries', function 
     EntryFacade::shouldReceive('find')->with('unpublished')->andReturn($entry);
 
     expect(calendarTag(context: ['id' => 'unpublished'], resolver: $resolver)->occurrence())->toBe([]);
+});
+
+test('status past is not constrained by the default upcoming window', function () {
+    $this->tagOccurrences = collect([
+        calendarTagOccurrence([
+            'title' => 'Past',
+            'start' => '2026-01-30T10:00:00+00:00',
+            'end' => '2026-01-30T11:00:00+00:00',
+        ]),
+        calendarTagOccurrence([
+            'title' => 'Older Past',
+            'start' => '2026-01-29T10:00:00+00:00',
+            'end' => '2026-01-29T11:00:00+00:00',
+        ]),
+    ]);
+
+    expect(collect(calendarTag(['status' => 'past', 'sort' => 'desc'])->index())->pluck('title')->all())
+        ->toBe(['Past', 'Older Past']);
+});
+
+test('status ongoing includes an occurrence in progress', function () {
+    $this->tagOccurrences = collect([calendarTagOccurrence([
+        'title' => 'Ongoing',
+        'start' => '2026-01-31T10:00:00+00:00',
+        'end' => '2026-02-01T12:00:00+00:00',
+    ])]);
+
+    expect(collect(calendarTag(['status' => 'ongoing'])->index())->pluck('title')->all())
+        ->toBe(['Ongoing']);
 });
 
 test('include_excluded surfaces excluded occurrences with metadata', function () {

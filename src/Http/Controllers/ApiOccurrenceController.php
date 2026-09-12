@@ -7,25 +7,35 @@ namespace ElSchneider\StatamicCalendar\Http\Controllers;
 use Carbon\Carbon;
 use ElSchneider\StatamicCalendar\Facades\Occurrences;
 use ElSchneider\StatamicCalendar\Occurrences\OccurrenceData;
+use ElSchneider\StatamicCalendar\Occurrences\OccurrenceWindow;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
+use InvalidArgumentException;
 
 class ApiOccurrenceController
 {
     public function index(Request $request): JsonResponse
     {
-        $from = $request->has('from') ? Carbon::parse($request->query('from')) : Carbon::now();
+        try {
+            $statuses = OccurrenceWindow::parseStatuses($request->query('status'));
+        } catch (InvalidArgumentException $exception) {
+            return new JsonResponse(['message' => $exception->getMessage()], 422);
+        }
+
+        $from = $request->has('from') ? Carbon::parse($request->query('from')) : ($statuses ? null : Carbon::now());
         $to = $request->has('to') ? Carbon::parse($request->query('to')) : null;
         $limit = $request->integer('limit') ?: null;
         $sort = $request->query('sort', 'asc') === 'desc' ? 'desc' : 'asc';
         $tags = $request->query('tags');
         $organizer = $request->query('organizer');
         $includeExcluded = $request->boolean('include_excluded');
+        $now = $statuses ? OccurrenceWindow::now() : null;
 
-        $occurrences = Occurrences::all($includeExcluded)
-            ->filter(fn (OccurrenceData $o) => $o->start->gte($from))
-            ->when($to, fn ($c) => $c->filter(fn (OccurrenceData $o) => $o->start->lte($to)));
+        $occurrences = ($statuses
+            ? Occurrences::status($statuses, $now, $includeExcluded)
+            : Occurrences::all($includeExcluded))
+            ->filter(fn (OccurrenceData $o) => OccurrenceWindow::matches($o, $from, $to));
 
         if ($tags) {
             $tagSlugs = array_filter(explode(',', (string) $tags));

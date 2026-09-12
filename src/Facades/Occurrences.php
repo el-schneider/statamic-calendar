@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\Facade;
  * @method static Collection<int, OccurrenceData> forEntry(string|int $entryId, bool $includeExcluded = false)
  * @method static Collection<int, OccurrenceData> forOrganizer(string|int|null $organizerId, bool $includeExcluded = false)
  * @method static Collection<int, OccurrenceData> upcoming(int $limit = 10, bool $includeExcluded = false)
+ * @method static Collection<int, OccurrenceData> status(array<string> $statuses, ?Carbon $now = null, bool $includeExcluded = false)
  * @method static void rebuild()
  * @method static void clear()
  * @method static bool isBuilt()

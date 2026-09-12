@@ -9,6 +9,7 @@ use ElSchneider\StatamicCalendar\Facades\Occurrences;
 use ElSchneider\StatamicCalendar\Occurrences\Occurrence;
 use ElSchneider\StatamicCalendar\Occurrences\OccurrenceData;
 use ElSchneider\StatamicCalendar\Occurrences\OccurrenceResolver;
+use ElSchneider\StatamicCalendar\Occurrences\OccurrenceWindow;
 use Illuminate\Support\Facades\URL;
 use Statamic\Contracts\Taxonomies\Term;
 use Statamic\Extensions\Pagination\LengthAwarePaginator;
@@ -29,39 +30,52 @@ class Calendar extends Tags
         protected OccurrenceResolver $resolver
     ) {}
 
+    /**
+     * Lists events that overlap the requested dates, including events already in progress.
+     *
+     * With status, only an explicitly supplied from limits how far back we look.
+     */
     public function index(): mixed
     {
         $collection = (string) $this->params->get('collection', config('statamic-calendar.collection', 'events'));
-        $from = $this->params->has('from') ? Carbon::parse((string) $this->params->get('from')) : Carbon::now();
+        $statuses = OccurrenceWindow::parseStatuses($this->params->get('status'));
+        // Defaulting to now here would exclude every event requested by status="past".
+        $from = $this->params->has('from') ? Carbon::parse((string) $this->params->get('from')) : ($statuses ? null : Carbon::now());
         $to = $this->params->has('to') ? Carbon::parse((string) $this->params->get('to')) : null;
         $limit = $this->params->int('limit');
         $sort = (string) $this->params->get('sort', 'asc');
         $paginate = $this->params->int('paginate');
         $pageName = (string) $this->params->get('page_name', 'page');
         $includeExcluded = $this->params->bool('include_excluded', false);
+        $now = $statuses ? OccurrenceWindow::now() : null;
 
         $tags = $this->params->get('tags');
 
         if ($collection === config('statamic-calendar.collection', 'events')) {
-            return $this->indexFromCache($from, $to, $limit, $tags, $sort, $paginate, $pageName, $includeExcluded);
+            return $this->indexFromCache($from, $to, $limit, $tags, $sort, $paginate, $pageName, $includeExcluded, $statuses, $now);
         }
 
-        return $this->indexFromResolver($collection, $from, $to, $limit, $tags, $sort, $paginate, $pageName, $includeExcluded);
+        return $this->indexFromResolver($collection, $from, $to, $limit, $tags, $sort, $paginate, $pageName, $includeExcluded, $statuses, $now);
     }
 
     /**
      * Usage: {{ calendar:for_organizer :organizer="id" limit="5" }}
+     *
+     * Like the main listing, status allows past events unless from is explicitly set.
      */
     public function forOrganizer(): mixed
     {
         $organizerId = $this->params->get('organizer') ?? $this->context->get('id');
         $limit = $this->params->int('limit', 5);
-        $from = $this->params->has('from') ? Carbon::parse((string) $this->params->get('from')) : Carbon::now();
+        $statuses = OccurrenceWindow::parseStatuses($this->params->get('status'));
+        $from = $this->params->has('from') ? Carbon::parse((string) $this->params->get('from')) : ($statuses ? null : Carbon::now());
         $paginate = $this->params->int('paginate');
         $pageName = (string) $this->params->get('page_name', 'page');
+        $now = $statuses ? OccurrenceWindow::now() : null;
 
         $occurrences = Occurrences::forOrganizer((is_string($organizerId) || is_int($organizerId)) ? (string) $organizerId : null)
-            ->filter(fn (OccurrenceData $o) => $o->start->gte($from))
+            ->filter(fn (OccurrenceData $o) => OccurrenceWindow::matches($o, $from))
+            ->when($statuses, fn ($c) => $c->filter(fn (OccurrenceData $o) => OccurrenceWindow::hasStatus($o, $statuses, $now)))
             ->sortBy(fn (OccurrenceData $o) => $o->start);
 
         $mapped = $occurrences->map(fn (OccurrenceData $o) => $this->occurrenceDataToArray($o))->values();
@@ -110,6 +124,9 @@ class Calendar extends Tags
      * Returns a month grid with weeks, days, and occurrences.
      *
      * Usage: {{ calendar:month param="month" week_starts_on="1" }}
+     *
+     * Occurrences are grouped under their start date; multi-day spans are not
+     * repeated on every day of the grid.
      */
     public function month(): mixed
     {
@@ -335,11 +352,12 @@ class Calendar extends Tags
         return $labels;
     }
 
-    private function indexFromCache(Carbon $from, ?Carbon $to, ?int $limit, $tags, string $sort = 'asc', int $paginate = 0, string $pageName = 'page', bool $includeExcluded = false): mixed
+    private function indexFromCache(?Carbon $from, ?Carbon $to, ?int $limit, $tags, string $sort = 'asc', int $paginate = 0, string $pageName = 'page', bool $includeExcluded = false, array $statuses = [], ?Carbon $now = null): mixed
     {
-        $occurrences = Occurrences::all($includeExcluded)
-            ->filter(fn (OccurrenceData $o) => $o->start->gte($from))
-            ->when($to, fn ($c) => $c->filter(fn (OccurrenceData $o) => $o->start->lte($to)));
+        $occurrences = ($statuses
+            ? Occurrences::status($statuses, $now, $includeExcluded)
+            : Occurrences::all($includeExcluded))
+            ->filter(fn (OccurrenceData $o) => OccurrenceWindow::matches($o, $from, $to));
 
         if ($tags) {
             $tagSlugs = $this->normalizeTagSlugs($tags);
@@ -396,16 +414,13 @@ class Calendar extends Tags
     }
 
     /**
-     * Live-resolve path for custom collections (not the cache).
+     * Builds occurrences directly for collections not covered by the cache.
      *
-     * With `paginate`, every matched entry's occurrences are resolved into memory
-     * before slicing. The resolver defaults to a 1-year window when no `to` is
-     * supplied (see OccurrenceResolver::resolveRecurringDate), so this is bounded,
-     * not unbounded — but for calendars with many long-running recurring entries,
-     * pass an explicit `to` to shrink the working set, or use the cached default
-     * collection.
+     * Status filtering and pagination currently load the matching series before
+     * selecting results. A small page size does not reduce that work. For old
+     * recurring series, supply from and to to restrict how much history is read.
      */
-    private function indexFromResolver(string $collection, Carbon $from, ?Carbon $to, ?int $limit, $tags, string $sort = 'asc', int $paginate = 0, string $pageName = 'page', bool $includeExcluded = false): mixed
+    private function indexFromResolver(string $collection, ?Carbon $from, ?Carbon $to, ?int $limit, $tags, string $sort = 'asc', int $paginate = 0, string $pageName = 'page', bool $includeExcluded = false, array $statuses = [], ?Carbon $now = null): mixed
     {
         $query = Entry::query()->where('collection', $collection);
 
@@ -425,15 +440,27 @@ class Calendar extends Tags
 
         $allOccurrences = collect();
 
-        $resolverLimit = $paginate > 0 ? null : $limit;
+        // Filter by status before applying the limit, or earlier dates could fill
+        // the results before we reach an occurrence with the requested status.
+        $resolverLimit = $paginate > 0 || $statuses ? null : $limit;
+        $resolverFrom = $from ?? Carbon::create(1, 1, 1, 0, 0, 0, OccurrenceWindow::now()->getTimezone());
+        $resolverTo = $to;
+
+        // Repeating events can continue forever. Without an explicit end date,
+        // look ahead only as far as the cache does, while still allowing past dates.
+        if ($statuses && ! $to) {
+            $resolverTo = $now->copy()->addDays((int) config('statamic-calendar.cache.days_ahead', 365));
+        }
 
         foreach ($entries as $entry) {
             if (! $entry->published()) {
                 continue;
             }
 
-            $occurrences = $this->resolver->resolve($entry, $from, $to, $resolverLimit, $includeExcluded);
-            $allOccurrences = $allOccurrences->merge($occurrences);
+            $occurrences = $this->resolver->resolve($entry, $resolverFrom, $resolverTo, $resolverLimit, $includeExcluded);
+            $allOccurrences = $allOccurrences->merge($statuses
+                ? $occurrences->filter(fn (Occurrence $o) => OccurrenceWindow::hasStatus($o, $statuses, $now))
+                : $occurrences);
         }
 
         $allOccurrences = $sort === 'desc'

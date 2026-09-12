@@ -47,7 +47,7 @@ class OccurrenceResolver
     public function representative(Entry $entry): ?Occurrence
     {
         $now = Carbon::now($this->timezone());
-        $occurrences = $this->representativeCandidates($entry, $now);
+        $occurrences = $this->candidates($entry, $now);
 
         return $this->firstUpcoming($occurrences, $now)
             ?? $occurrences->sortBy(fn (Occurrence $o) => $o->start)->last();
@@ -57,10 +57,10 @@ class OccurrenceResolver
     {
         $from ??= Carbon::now($this->timezone());
 
-        return $this->firstUpcoming(
-            $this->representativeCandidates($entry, $from),
-            $from,
-        );
+        return $this->candidates($entry, $from, strictlyFuture: true)
+            ->filter(fn (Occurrence $o) => $o->start->gt($from))
+            ->sortBy(fn (Occurrence $o) => $o->start)
+            ->first();
     }
 
     public function findOccurrenceOnDate(Entry $entry, Carbon $date, bool $includeExcluded = false): ?Occurrence
@@ -81,7 +81,7 @@ class OccurrenceResolver
         });
     }
 
-    private function representativeCandidates(Entry $entry, Carbon $at): Collection
+    private function candidates(Entry $entry, Carbon $at, bool $strictlyFuture = false): Collection
     {
         $occurrences = collect();
 
@@ -97,7 +97,8 @@ class OccurrenceResolver
                 null,
                 null,
                 includeExcluded: false,
-                representativeAt: $at,
+                representativeAt: $strictlyFuture ? null : $at,
+                nextAfter: $strictlyFuture ? $at : null,
             ));
         }
 
@@ -107,12 +108,12 @@ class OccurrenceResolver
     private function firstUpcoming(Collection $occurrences, Carbon $from): ?Occurrence
     {
         return $occurrences
-            ->filter(fn (Occurrence $o) => $o->start->gte($from))
+            ->filter(fn (Occurrence $o) => OccurrenceWindow::matches($o, $from))
             ->sortBy(fn (Occurrence $o) => $o->start)
             ->first();
     }
 
-    private function resolveDateRow(Entry $entry, array $row, Carbon $from, ?Carbon $to, ?int $limit, bool $includeExcluded = false, ?Carbon $representativeAt = null): Collection
+    private function resolveDateRow(Entry $entry, array $row, Carbon $from, ?Carbon $to, ?int $limit, bool $includeExcluded = false, ?Carbon $representativeAt = null, ?Carbon $nextAfter = null): Collection
     {
         $isRecurring = (bool) ($row['is_recurring'] ?? false);
 
@@ -120,12 +121,12 @@ class OccurrenceResolver
             return $this->resolveSingleDate($entry, $row, $from, $to);
         }
 
-        return $this->resolveRecurringDate($entry, $row, $from, $to, $limit, $includeExcluded, $representativeAt);
+        return $this->resolveRecurringDate($entry, $row, $from, $to, $limit, $includeExcluded, $representativeAt, $nextAfter);
     }
 
-    private function resolveRecurringDate(Entry $entry, array $row, Carbon $from, ?Carbon $to, ?int $limit, bool $includeExcluded = false, ?Carbon $representativeAt = null): Collection
+    private function resolveRecurringDate(Entry $entry, array $row, Carbon $from, ?Carbon $to, ?int $limit, bool $includeExcluded = false, ?Carbon $representativeAt = null, ?Carbon $nextAfter = null): Collection
     {
-        if (! $to && ! $limit && ! $representativeAt) {
+        if (! $to && ! $limit && ! $representativeAt && ! $nextAfter) {
             $to = $from->copy()->addYear();
         }
 
@@ -178,10 +179,6 @@ class OccurrenceResolver
                 continue;
             }
 
-            if ($start->lt($from)) {
-                continue;
-            }
-
             if ($to && $start->gt($to)) {
                 break;
             }
@@ -208,10 +205,22 @@ class OccurrenceResolver
                     : null,
             );
 
+            if (! OccurrenceWindow::matches($occurrence, $from, $to)) {
+                continue;
+            }
+
+            if ($nextAfter) {
+                if ($occurrence->start->gt($nextAfter)) {
+                    return collect([$occurrence]);
+                }
+
+                continue;
+            }
+
             if ($representativeAt) {
                 $occurrences = collect([$occurrence]);
 
-                if ($start->gte($representativeAt)) {
+                if (OccurrenceWindow::effectiveEnd($occurrence)->gte($representativeAt)) {
                     break;
                 }
             } else {
@@ -340,20 +349,19 @@ class OccurrenceResolver
         }
 
         $end = $this->singleDateEnd($entry, $row, $start);
+        $occurrence = new Occurrence(
+            entry: $entry,
+            start: $start,
+            end: $end,
+            isAllDay: (bool) ($row['is_all_day'] ?? false),
+            isRecurring: false,
+        );
 
-        if ($start->lt($from) || ($to && $start->gt($to))) {
+        if (! OccurrenceWindow::matches($occurrence, $from, $to)) {
             return collect();
         }
 
-        return collect([
-            new Occurrence(
-                entry: $entry,
-                start: $start,
-                end: $end,
-                isAllDay: (bool) ($row['is_all_day'] ?? false),
-                isRecurring: false,
-            ),
-        ]);
+        return collect([$occurrence]);
     }
 
     /**
@@ -398,12 +406,7 @@ class OccurrenceResolver
      */
     private function timezone(): string
     {
-        return (string) (
-            config('statamic-calendar.timezone')
-            ?: config('statamic.system.display_timezone')
-            ?: config('app.timezone')
-            ?: 'UTC'
-        );
+        return OccurrenceWindow::timezone();
     }
 
     /**

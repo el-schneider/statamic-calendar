@@ -67,6 +67,11 @@ beforeEach(function () {
     // Fresh collections so the mocked returns can't alias each other.
     $mock->shouldReceive('all')->with(false)->andReturnUsing(fn () => $this->occurrences->values());
     $mock->shouldReceive('all')->with(true)->andReturnUsing(fn () => $this->occurrences->concat([$excluded])->values());
+    $mock->shouldReceive('status')->andReturnUsing(function (array $statuses, Carbon $now, bool $includeExcluded = false) use ($excluded) {
+        $occurrences = $includeExcluded ? $this->occurrences->concat([$excluded]) : $this->occurrences;
+
+        return $occurrences->filter(fn (OccurrenceData $occurrence) => ElSchneider\StatamicCalendar\Occurrences\OccurrenceWindow::hasStatus($occurrence, $statuses, $now))->values();
+    });
     $this->app->instance(OccurrenceCache::class, $mock);
 });
 
@@ -113,10 +118,43 @@ test('filters by from and to', function () {
         ->assertJsonPath('data.0.title', 'Laravel Meetup');
 });
 
+test('includes timed occurrences in progress from the window start', function () {
+    $this->occurrences->push(makeApiOccurrence([
+        'id' => 'in-progress-2026-03-01-090000',
+        'title' => 'In Progress',
+        'start' => '2026-03-01T09:00:00+00:00',
+        'end' => '2026-03-01T11:00:00+00:00',
+    ]));
+
+    $this->getJson('/api/calendar/occurrences?from=2026-03-01T10:00:00Z')
+        ->assertOk()
+        ->assertJsonPath('data.0.title', 'In Progress');
+});
+
 test('includes past occurrences when from is in the past', function () {
     $this->getJson('/api/calendar/occurrences?from=2026-02-01')
         ->assertOk()
         ->assertJsonCount(4, 'data');
+});
+
+test('filters statuses without applying the default upcoming window', function () {
+    $this->occurrences->push(makeApiOccurrence([
+        'id' => 'ongoing-2026-03-01-090000',
+        'title' => 'Ongoing',
+        'start' => '2026-03-01T09:00:00+00:00',
+        'end' => '2026-03-01T11:00:00+00:00',
+    ]));
+
+    $this->getJson('/api/calendar/occurrences?status=upcoming,ongoing')
+        ->assertOk()
+        ->assertJsonCount(4, 'data')
+        ->assertJsonPath('data.0.title', 'Ongoing');
+});
+
+test('rejects invalid status filters', function () {
+    $this->getJson('/api/calendar/occurrences?status=tomorrow')
+        ->assertStatus(422)
+        ->assertJsonPath('message', 'Invalid occurrence status: tomorrow');
 });
 
 test('limits results', function () {

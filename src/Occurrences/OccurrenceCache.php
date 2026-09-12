@@ -53,7 +53,7 @@ class OccurrenceCache
     public function between(Carbon $from, Carbon $to, bool $includeExcluded = false): Collection
     {
         return $this->all($includeExcluded)->filter(
-            fn (OccurrenceData $o) => $o->start->gte($from) && $o->start->lte($to)
+            fn (OccurrenceData $o) => OccurrenceWindow::matches($o, $from, $to)
         )->values();
     }
 
@@ -82,16 +82,31 @@ class OccurrenceCache
     }
 
     /**
+     * Includes occurrences in progress, then orders by their start time.
+     *
      * @return Collection<int, OccurrenceData>
      */
     public function upcoming(int $limit = 10, bool $includeExcluded = false): Collection
     {
-        $now = Carbon::now();
+        $now = OccurrenceWindow::now();
 
         return $this->all($includeExcluded)
-            ->filter(fn (OccurrenceData $o) => $o->start->gte($now))
+            ->filter(fn (OccurrenceData $o) => OccurrenceWindow::matches($o, $now))
             ->sortBy(fn (OccurrenceData $o) => $o->start)
             ->take($limit)
+            ->values();
+    }
+
+    /**
+     * @param  array<string>  $statuses  Any of upcoming, ongoing, or past.
+     * @return Collection<int, OccurrenceData>
+     */
+    public function status(array $statuses, ?Carbon $now = null, bool $includeExcluded = false): Collection
+    {
+        $now ??= OccurrenceWindow::now();
+
+        return $this->all($includeExcluded)
+            ->filter(fn (OccurrenceData $o) => OccurrenceWindow::hasStatus($o, $statuses, $now))
             ->values();
     }
 
