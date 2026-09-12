@@ -8,12 +8,13 @@ use Carbon\Carbon;
 use InvalidArgumentException;
 
 /**
- * Interval semantics shared by cache, resolver, and presentation reads.
+ * Shared rules for deciding whether an event overlaps the requested dates
+ * and whether it has finished. For example, a Monday–Friday exhibition must
+ * appear in a Wednesday listing even though it started earlier.
  *
- * An occurrence intersects a window when its effective end is on or after
- * the window start and its start is on or before the window end. All-day
- * occurrences remain active through the end of their final local day. Timed
- * occurrences without an explicit end also remain active through that day.
+ * All-day events remain current through their final day. Events without an
+ * end remain current through their start day. This is a listing rule only:
+ * it does not add an end time to the event or its calendar download.
  */
 class OccurrenceWindow
 {

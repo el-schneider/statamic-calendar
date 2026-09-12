@@ -31,16 +31,15 @@ class Calendar extends Tags
     ) {}
 
     /**
-     * Lists occurrences in a window.
+     * Lists events that overlap the requested dates, including events already in progress.
      *
-     * status accepts upcoming, ongoing, and past. When status is supplied, it
-     * supersedes the implicit from=now; pass from to combine it with a window.
+     * With status, only an explicitly supplied from limits how far back we look.
      */
     public function index(): mixed
     {
         $collection = (string) $this->params->get('collection', config('statamic-calendar.collection', 'events'));
         $statuses = OccurrenceWindow::parseStatuses($this->params->get('status'));
-        // Status is a classification, not a window: it must not inherit the upcoming floor.
+        // Defaulting to now here would exclude every event requested by status="past".
         $from = $this->params->has('from') ? Carbon::parse((string) $this->params->get('from')) : ($statuses ? null : Carbon::now());
         $to = $this->params->has('to') ? Carbon::parse((string) $this->params->get('to')) : null;
         $limit = $this->params->int('limit');
@@ -62,8 +61,7 @@ class Calendar extends Tags
     /**
      * Usage: {{ calendar:for_organizer :organizer="id" limit="5" }}
      *
-     * status accepts upcoming, ongoing, and past. When status is supplied, it
-     * supersedes the implicit from=now; pass from to combine it with a window.
+     * Like the main listing, status allows past events unless from is explicitly set.
      */
     public function forOrganizer(): mixed
     {
@@ -416,14 +414,11 @@ class Calendar extends Tags
     }
 
     /**
-     * Live-resolve path for custom collections (not the cache).
+     * Builds occurrences directly for collections not covered by the cache.
      *
-     * With `paginate`, every matched entry's occurrences are resolved into memory
-     * before slicing. The resolver defaults to a 1-year window when no `to` is
-     * supplied (see OccurrenceResolver::resolveRecurringDate), so this is bounded,
-     * not unbounded — but for calendars with many long-running recurring entries,
-     * pass an explicit `to` to shrink the working set, or use the cached default
-     * collection.
+     * Status filtering and pagination currently load the matching series before
+     * selecting results. A small page size does not reduce that work. For old
+     * recurring series, supply from and to to restrict how much history is read.
      */
     private function indexFromResolver(string $collection, ?Carbon $from, ?Carbon $to, ?int $limit, $tags, string $sort = 'asc', int $paginate = 0, string $pageName = 'page', bool $includeExcluded = false, array $statuses = [], ?Carbon $now = null): mixed
     {
@@ -445,15 +440,14 @@ class Calendar extends Tags
 
         $allOccurrences = collect();
 
-        // Status filters apply after resolving. Limiting each entry first could
-        // keep an old occurrence and discard the later matching one.
+        // Filter by status before applying the limit, or earlier dates could fill
+        // the results before we reach an occurrence with the requested status.
         $resolverLimit = $paginate > 0 || $statuses ? null : $limit;
         $resolverFrom = $from ?? Carbon::create(1, 1, 1, 0, 0, 0, OccurrenceWindow::now()->getTimezone());
         $resolverTo = $to;
 
-        // A status-only query has no lower window bound. Match the cached
-        // collection's materialization range instead of deriving year 2 from
-        // the year-1 sentinel passed to the resolver.
+        // Repeating events can continue forever. Without an explicit end date,
+        // look ahead only as far as the cache does, while still allowing past dates.
         if ($statuses && ! $to) {
             $resolverTo = $now->copy()->addDays((int) config('statamic-calendar.cache.days_ahead', 365));
         }

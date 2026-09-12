@@ -184,7 +184,7 @@ STATAMIC_CALENDAR_API_ENABLED=true
 
 `GET /api/calendar/occurrences`
 
-Window and status behavior: `ApiOccurrenceController::index()`.
+The API uses the same [date and status filters](#date-and-status-filters) as calendar listings. For example, `?status=past&sort=desc` lists finished occurrences, and `?status=upcoming,ongoing` includes future events and those happening now.
 
 | Parameter   | Type     | Description                     | Default |
 | ----------- | -------- | ------------------------------- | ------- |
@@ -333,7 +333,7 @@ With the `date_segments` strategy, the occurrence controller also exposes the cu
 
 ### `{{ calendar }}`
 
-Lists occurrences from the cache (or resolves them live for non-default collections). Window and status behavior: `Calendar::index()`.
+Lists occurrences from the cache (or resolves them live for non-default collections). See [date and status filters](#date-and-status-filters) for ongoing events and archives.
 
 | Parameter    | Description              | Default      |
 | ------------ | ------------------------ | ------------ |
@@ -345,6 +345,35 @@ Lists occurrences from the cache (or resolves them live for non-default collecti
 | `as`         | Results variable name when using pagination or grouped output | `occurrences` |
 | `collection` | Collection handle        | config value |
 | `tags`       | Filter by taxonomy terms | —            |
+
+### Date and status filters
+
+By default, `{{ calendar }}` lists events happening now or starting later. A workshop running from 18:00 to 20:00 stays in the list at 19:00.
+
+`from` and `to` select events that overlap the requested period, not just events that start within it. An exhibition running from August to October therefore appears in a September query. Events ending exactly at `from` or starting exactly at `to` are included.
+
+Use `status` when you want to distinguish events by whether they have finished:
+
+- `upcoming`: starts after now.
+- `ongoing`: has started and has not finished.
+- `past`: has finished.
+
+Combine values with commas, such as `status="upcoming,ongoing"`. Supplying `status` removes the default `from="now"`, so past events can be returned. You can still pass explicit `from` and `to` dates to narrow the results. Unknown status names are rejected.
+
+```antlers
+{{# Events happening now or starting later #}}
+{{ calendar }} ... {{ /calendar }}
+
+{{# Finished events, newest first #}}
+{{ calendar status="past" sort="desc" paginate="12" }} ... {{ /calendar }}
+
+{{# Only events happening now #}}
+{{ calendar status="ongoing" }} ... {{ /calendar }}
+```
+
+All-day events remain current through their final day. If an event has no end, it remains current through its start day; this does not invent an end time in exported event data. Statuses use the configured event timezone.
+
+Recurring results are limited by the available occurrence cache. For non-default collections, status queries without `to` expand recurrences through today plus `cache.days_ahead`. The month grid still places an occurrence only on its start date, rather than repeating it in every day it spans.
 
 ### `{{ calendar:month }}`
 
@@ -366,7 +395,7 @@ Show-page occurrence tag. See `Calendar::occurrence()` for its contract and the 
 
 ### `{{ calendar:next_occurrences }}`
 
-Lists upcoming occurrences for a specific entry. Window behavior: `OccurrenceWindow`.
+Lists occurrences for a specific entry, including those still in progress at `from`.
 
 | Parameter | Description     | Default              |
 | --------- | --------------- | -------------------- |
@@ -400,7 +429,7 @@ Returns the .ics download URL for a single occurrence. Use inside any `{{ calend
 
 ### `{{ calendar:for_organizer }}`
 
-Lists upcoming occurrences for an organizer (from cache). Status behavior: `Calendar::forOrganizer()`.
+Lists occurrences for an organizer (from cache). Accepts the same `status` values and default `from` behavior as the main calendar listing.
 
 | Parameter   | Description        | Default              |
 | ----------- | ------------------ | -------------------- |
