@@ -5,11 +5,11 @@ declare(strict_types=1);
 use Carbon\Carbon;
 use ElSchneider\StatamicCalendar\Occurrences\OccurrenceCache;
 use ElSchneider\StatamicCalendar\Occurrences\OccurrenceData;
+use ElSchneider\StatamicCalendar\Occurrences\OccurrenceResolver;
 use ElSchneider\StatamicCalendar\Tags\Calendar;
-use Illuminate\Support\Facades\File;
 use Statamic\Contracts\View\Antlers\Parser;
-use Statamic\Facades\Collection;
-use Statamic\Facades\Entry;
+use Statamic\Contracts\Entries\Entry as Entry;
+use Statamic\Facades\Entry as EntryFacade;
 
 beforeEach(function () {
     Carbon::setTestNow('2026-02-01 00:00:00');
@@ -40,20 +40,11 @@ beforeEach(function () {
     $this->app->instance(OccurrenceCache::class, $mock);
 });
 
-afterEach(function () {
-    Carbon::setTestNow();
-    config()->set('statamic-calendar.url.strategy', 'query_string');
-    request()->query->remove('date');
+afterEach(fn () => Carbon::setTestNow());
 
-    File::delete([
-        __DIR__.'/../__fixtures__/content/collections/events.yaml',
-        __DIR__.'/../__fixtures__/content/collections/events/current-occurrence-tag-test.md',
-    ]);
-});
-
-function calendarTag(array $params = [], array $context = []): Calendar
+function calendarTag(array $params = [], array $context = [], ?OccurrenceResolver $resolver = null): Calendar
 {
-    $tag = app(Calendar::class);
+    $tag = $resolver ? new Calendar($resolver) : app(Calendar::class);
     $tag->setProperties([
         'parser' => app(Parser::class),
         'content' => '',
@@ -97,40 +88,6 @@ test('loop items expose composed occurrence_id alongside entry id', function () 
     expect($item['occurrence_id'])->toBe('aaa-2026-02-05-100000');
 });
 
-test('current_occurrence returns one occurrence array with loop keys', function () {
-    config()->set('statamic-calendar.url.strategy', 'date_segments');
-
-    $collection = Collection::find('events') ?? Collection::make('events');
-    $collection->save();
-
-    $entry = Entry::make()
-        ->id('current-occurrence-tag-test')
-        ->collection($collection)
-        ->locale('default')
-        ->slug('current-occurrence-tag-test')
-        ->published(true)
-        ->data(['dates' => [[
-            'start_date' => '2026-02-05',
-            'start_time' => '10:00',
-            'is_all_day' => false,
-            'is_recurring' => false,
-        ]]]);
-    $entry->save();
-
-    request()->query->set('date', '2026-02-05');
-
-    $result = calendarTag(context: ['id' => $entry->id()])->currentOccurrence();
-
-    expect($result)->toHaveCount(1)
-        ->and($result[0]['occurrence_id'])->toBe('current-occurrence-tag-test-2026-02-05-100000')
-        ->and($result[0]['url'])->toBe('/calendar/2026/02/05/current-occurrence-tag-test')
-        ->and($result[0]['occurrence_url'])->toBe($result[0]['url']);
-
-    request()->query->set('date', '2026-02-06');
-
-    expect(calendarTag(context: ['id' => $entry->id()])->currentOccurrence())->toBe([]);
-});
-
 test('ics_download_url uses context occurrence_id when present', function () {
     $tag = calendarTag(
         params: [],
@@ -172,6 +129,99 @@ test('index hides excluded occurrences by default', function () {
 
     expect($result)->toHaveCount(1);
     expect(collect($result)->first()['is_excluded'])->toBeFalse();
+});
+
+function occurrenceTagEntry(bool $published = true): Entry
+{
+    $entry = Mockery::mock(Entry::class);
+    $entry->shouldReceive('published')->andReturn($published);
+    $entry->shouldReceive('id')->andReturn('entry-id');
+    $entry->shouldReceive('url')->andReturn('/events/event');
+
+    return $entry;
+}
+
+function resolvedTagOccurrence(Entry $entry, string $date): ElSchneider\StatamicCalendar\Occurrences\Occurrence
+{
+    return new ElSchneider\StatamicCalendar\Occurrences\Occurrence(
+        entry: $entry,
+        start: Carbon::parse($date.' 10:00:00'),
+        end: Carbon::parse($date.' 11:00:00'),
+        isAllDay: false,
+        isRecurring: true,
+        recurrenceDescription: 'weekly',
+    );
+}
+
+test('occurrence resolves the requested query-string date', function () {
+    config()->set('statamic-calendar.url.strategy', 'query_string');
+    request()->query->set('date', '2026-02-12');
+
+    $entry = occurrenceTagEntry();
+    EntryFacade::shouldReceive('find')->with('entry-id')->andReturn($entry);
+    $occurrence = resolvedTagOccurrence($entry, '2026-02-12');
+    $resolver = Mockery::mock(OccurrenceResolver::class);
+    $resolver->shouldReceive('findOccurrenceOnDate')->withArgs(fn ($foundEntry, Carbon $date) => $foundEntry === $entry && $date->toDateString() === '2026-02-12')->andReturn($occurrence);
+    $resolver->shouldNotReceive('representative');
+
+    $result = calendarTag(context: ['id' => 'entry-id'], resolver: $resolver)->occurrence();
+
+    expect($result)->toHaveCount(1)
+        ->and(array_keys($result[0]))->toBe(['occurrence_id', 'start', 'end', 'is_all_day', 'is_recurring', 'recurrence_description', 'url', 'is_excluded', 'replacement_date', 'replaces_date'])
+        ->and($result[0]['start']->toDateString())->toBe('2026-02-12');
+});
+
+test('occurrence falls back to representative when the requested date does not resolve', function () {
+    config()->set('statamic-calendar.url.strategy', 'query_string');
+    request()->query->set('date', '2026-02-12');
+
+    $entry = occurrenceTagEntry();
+    EntryFacade::shouldReceive('find')->with('entry-id')->andReturn($entry);
+    $occurrence = resolvedTagOccurrence($entry, '2026-02-19');
+    $resolver = Mockery::mock(OccurrenceResolver::class);
+    $resolver->shouldReceive('findOccurrenceOnDate')->andReturnNull();
+    $resolver->shouldReceive('representative')->with($entry)->andReturn($occurrence);
+
+    expect(calendarTag(context: ['id' => 'entry-id'], resolver: $resolver)->occurrence()[0]['start']->toDateString())
+        ->toBe('2026-02-19');
+});
+
+test('occurrence resolves the next upcoming occurrence without a date parameter', function () {
+    config()->set('statamic-calendar.url.strategy', 'query_string');
+
+    $entry = occurrenceTagEntry();
+    EntryFacade::shouldReceive('find')->with('entry-id')->andReturn($entry);
+    $occurrence = resolvedTagOccurrence($entry, '2026-02-05');
+    $resolver = Mockery::mock(OccurrenceResolver::class);
+    $resolver->shouldReceive('representative')->with($entry)->andReturn($occurrence);
+
+    $result = calendarTag(params: ['entry' => 'entry-id'], resolver: $resolver)->occurrence();
+
+    expect($result[0]['start']->toDateString())->toBe('2026-02-05');
+});
+
+test('occurrence resolves the most recent past occurrence when representative has no upcoming date', function () {
+    $entry = occurrenceTagEntry();
+    EntryFacade::shouldReceive('find')->with('entry-id')->andReturn($entry);
+    $occurrence = resolvedTagOccurrence($entry, '2026-01-10');
+    $resolver = Mockery::mock(OccurrenceResolver::class);
+    $resolver->shouldReceive('representative')->with($entry)->andReturn($occurrence);
+
+    $result = calendarTag(context: ['id' => 'entry-id'], resolver: $resolver)->occurrence();
+
+    expect($result[0]['start']->toDateString())->toBe('2026-01-10');
+});
+
+test('occurrence returns no items for missing or unpublished entries', function () {
+    EntryFacade::shouldReceive('find')->with('missing')->andReturnNull();
+    $resolver = Mockery::mock(OccurrenceResolver::class);
+
+    expect(calendarTag(context: ['id' => 'missing'], resolver: $resolver)->occurrence())->toBe([]);
+
+    $entry = occurrenceTagEntry(published: false);
+    EntryFacade::shouldReceive('find')->with('unpublished')->andReturn($entry);
+
+    expect(calendarTag(context: ['id' => 'unpublished'], resolver: $resolver)->occurrence())->toBe([]);
 });
 
 test('include_excluded surfaces excluded occurrences with metadata', function () {

@@ -288,7 +288,7 @@ Set the collection template to `events/show`, then create `resources/views/event
 ```antlers
 <h1>{{ title }}</h1>
 
-{{ calendar:current_occurrence }}
+{{ calendar:occurrence }}
   <p>{{ start format="l, F j, Y" }}</p>
   {{ if !is_all_day }}
     <p>
@@ -301,13 +301,13 @@ Set the collection template to `events/show`, then create `resources/views/event
   {{ if is_recurring }}
     <p>Repeats: {{ recurrence_description }}</p>
   {{ /if }}
-{{ /calendar:current_occurrence }}
+{{ /calendar:occurrence }}
 {{ calendar:next_occurrences :entry="id" limit="5" }}
   <a href="{{ url }}">{{ start format="M j, Y" }}</a>
 {{ /calendar:next_occurrences }}
 ```
 
-The `{{ calendar:current_occurrence }}` tag reads the `?date=` query parameter and resolves the matching occurrence for the current entry. When using the `date_segments` strategy, the date is extracted from the URL instead.
+The `{{ calendar:occurrence }}` tag resolves the occurrence a show page should display. With the `query_string` strategy, a valid `?date=` query parameter takes precedence. Otherwise it returns the next upcoming occurrence, or the most recent past occurrence. Pass `entry="..."` to resolve a different entry.
 
 With the `date_segments` strategy, the occurrence controller also exposes the current occurrence directly to the show template: `start`, `end`, `is_all_day`, `is_recurring`, `recurrence_description`, `occurrence_url`, and `occurrence_canonical_url`. Compose SEO markup from those values plus your own blueprint fields:
 
@@ -358,9 +358,9 @@ Renders a month grid with weeks, days, and occurrences. Navigation via query par
 
 Variables available inside the tag pair: `month_label`, `year`, `month`, `prev_url`, `next_url`, `today`, `day_labels` (loop with `label`, `full_label`), and `weeks` → `days` → `date`, `day`, `is_current_month`, `is_today`, `occurrences`.
 
-### `{{ calendar:current_occurrence }}`
+### `{{ calendar:occurrence }}`
 
-Resolves the current occurrence for the entry in context from the `?date=` query param. See the tag method docblock for its loop-item fields and return behavior.
+Show-page occurrence tag. See `Calendar::occurrence()` for its contract and the Event Show Page example above.
 
 ### `{{ calendar:next_occurrences }}`
 

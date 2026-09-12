@@ -196,10 +196,38 @@ class Calendar extends Tags
         ]);
     }
 
+    /**
+     * Resolves the occurrence a show page should display for the entry in context.
+     *
+     * A valid date query parameter takes precedence; otherwise this returns the
+     * resolver's representative occurrence (next upcoming, or the most recent).
+     *
+     * Usage: {{ calendar:occurrence }} ... {{ /calendar:occurrence }}
+     */
+    public function occurrence(): array
+    {
+        $entry = $this->entryFromParamOrContext();
+
+        if (! $entry || ! $entry->published()) {
+            return [];
+        }
+
+        $occurrence = null;
+
+        if (config('statamic-calendar.url.strategy', 'date_segments') === 'query_string') {
+            $param = (string) config('statamic-calendar.url.query_string.param', 'date');
+            $date = request()->query($param);
+            $occurrence = $date ? $this->resolver->findOccurrenceOnDate($entry, Carbon::parse((string) $date)) : null;
+        }
+
+        $occurrence ??= $this->resolver->representative($entry);
+
+        return $occurrence ? [$this->showOccurrenceToArray($occurrence)] : [];
+    }
+
     public function nextOccurrences(): array
     {
-        $entryId = $this->params->get('entry') ?? $this->context->get('id');
-        $entry = (is_string($entryId) || is_int($entryId)) ? Entry::find((string) $entryId) : null;
+        $entry = $this->entryFromParamOrContext();
 
         if (! $entry || ! $entry->published()) {
             return [];
@@ -444,6 +472,36 @@ class Calendar extends Tags
         }
 
         return $this->output($mapped);
+    }
+
+    private function entryFromParamOrContext()
+    {
+        $entryId = $this->params->get('entry') ?? $this->context->get('id');
+
+        if ($entryId instanceof \Statamic\Fields\Value) {
+            $entryId = $entryId->value();
+        }
+
+        return (is_string($entryId) || is_int($entryId)) ? Entry::find((string) $entryId) : null;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function showOccurrenceToArray(Occurrence $occurrence): array
+    {
+        return [
+            'occurrence_id' => OccurrenceData::composeId($occurrence->entry->id(), $occurrence->start),
+            'start' => $occurrence->start,
+            'end' => $occurrence->end,
+            'is_all_day' => $occurrence->isAllDay,
+            'is_recurring' => $occurrence->isRecurring,
+            'recurrence_description' => $occurrence->recurrenceDescription,
+            'url' => $occurrence->url(),
+            'is_excluded' => $occurrence->isExcluded,
+            'replacement_date' => $occurrence->replacementDate,
+            'replaces_date' => $occurrence->replacesDate,
+        ];
     }
 
     private function getContextStart(): ?Carbon
