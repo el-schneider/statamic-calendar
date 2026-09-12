@@ -17,6 +17,7 @@ function entryWithDates(array $rows): Entry
     $entry = Mockery::mock(Entry::class);
     $entry->shouldReceive('hasSupplement')->with('dates')->andReturnFalse();
     $entry->shouldReceive('get')->with('dates')->andReturn($rows);
+    $entry->shouldReceive('id')->andReturn('entry-1');
 
     return $entry;
 }
@@ -53,6 +54,47 @@ test('recurring row with a Statamic 6 datetime start_date does not crash (DTSTAR
     expect($occurrences)->toHaveCount(3);
     expect($occurrences->first()->start->format('Y-m-d H:i'))->toBe('2025-03-01 08:00');
     expect($occurrences->first()->start->getTimezone()->getName())->toBe('Europe/Berlin');
+});
+
+test('single date without an end date ends on the start day', function () {
+    $occurrence = resolveDates([[
+        'start_date' => '2025-06-01',
+        'start_time' => '10:00',
+        'end_time' => '12:30',
+        'is_recurring' => false,
+    ]])->sole();
+
+    expect($occurrence->end?->format('Y-m-d H:i'))->toBe('2025-06-01 12:30');
+});
+
+test('single date without an end date rejects an end time that is not after the start', function () {
+    resolveDates([[
+        'start_date' => '2025-06-01',
+        'start_time' => '22:00',
+        'end_time' => '02:00',
+        'is_recurring' => false,
+    ]]);
+})->throws(InvalidArgumentException::class, 'set an end_date');
+
+test('single date with an end date but no end time ends when that day ends', function () {
+    $occurrence = resolveDates([[
+        'start_date' => '2025-06-01',
+        'start_time' => '18:00',
+        'end_date' => '2025-06-03',
+        'is_recurring' => false,
+    ]])->sole();
+
+    expect($occurrence->end?->format('Y-m-d H:i:s'))->toBe('2025-06-03 23:59:59');
+});
+
+test('single date without an end time keeps an open end', function () {
+    $occurrence = resolveDates([[
+        'start_date' => '2025-06-01',
+        'start_time' => '18:00',
+        'is_recurring' => false,
+    ]])->sole();
+
+    expect($occurrence->end)->toBeNull();
 });
 
 test('single date stored as a UTC instant resolves to the local calendar day (no off-by-one)', function () {
