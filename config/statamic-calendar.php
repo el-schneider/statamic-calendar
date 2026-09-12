@@ -174,5 +174,9 @@ return [
     'cache' => [
         'key' => 'statamic_calendar.occurrences',
         'days_ahead' => 365,
+
+        // Runs occurrences:rebuild daily so the days_ahead window keeps moving
+        // without an entry save. Set false to schedule the command yourself.
+        'schedule_rebuild' => true,
     ],
 ];

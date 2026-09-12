@@ -105,7 +105,16 @@ class OccurrenceCache
         return Cache::has($this->cacheKey());
     }
 
+    /**
+     * Serialize cache snapshots with entry-save rebuilds so an older snapshot
+     * cannot overwrite a newer one after both have expanded occurrences.
+     */
     public function rebuild(): void
+    {
+        Cache::lock('statamic_calendar.rebuild', 60)->block(5, fn () => $this->rebuildLocked());
+    }
+
+    private function rebuildLocked(): void
     {
         /** @var OccurrenceResolver $resolver */
         $resolver = App::make(OccurrenceResolver::class);
