@@ -6,7 +6,10 @@ use Carbon\Carbon;
 use ElSchneider\StatamicCalendar\Occurrences\OccurrenceCache;
 use ElSchneider\StatamicCalendar\Occurrences\OccurrenceData;
 use ElSchneider\StatamicCalendar\Tags\Calendar;
+use Illuminate\Support\Facades\File;
 use Statamic\Contracts\View\Antlers\Parser;
+use Statamic\Facades\Collection;
+use Statamic\Facades\Entry;
 
 beforeEach(function () {
     Carbon::setTestNow('2026-02-01 00:00:00');
@@ -30,13 +33,23 @@ beforeEach(function () {
     // The tag forwards $includeExcluded through to the cache — mirror that
     // boundary so tests can verify the param is actually propagated. Build
     // fresh collections each call so the mocked returns can't alias.
+    $mock->shouldReceive('rebuild')->zeroOrMoreTimes();
     $mock->shouldReceive('all')->with(false)->andReturnUsing(fn () => collect([$visible]));
     $mock->shouldReceive('all')->with(true)->andReturnUsing(fn () => collect([$visible, $excluded]));
     $mock->shouldReceive('all')->withNoArgs()->andReturnUsing(fn () => collect([$visible]));
     $this->app->instance(OccurrenceCache::class, $mock);
 });
 
-afterEach(fn () => Carbon::setTestNow());
+afterEach(function () {
+    Carbon::setTestNow();
+    config()->set('statamic-calendar.url.strategy', 'query_string');
+    request()->query->remove('date');
+
+    File::delete([
+        __DIR__.'/../__fixtures__/content/collections/events.yaml',
+        __DIR__.'/../__fixtures__/content/collections/events/current-occurrence-tag-test.md',
+    ]);
+});
 
 function calendarTag(array $params = [], array $context = []): Calendar
 {
@@ -82,6 +95,40 @@ test('loop items expose composed occurrence_id alongside entry id', function () 
 
     expect($item['id'])->toBe('aaa');
     expect($item['occurrence_id'])->toBe('aaa-2026-02-05-100000');
+});
+
+test('current_occurrence returns one occurrence array with loop keys', function () {
+    config()->set('statamic-calendar.url.strategy', 'date_segments');
+
+    $collection = Collection::find('events') ?? Collection::make('events');
+    $collection->save();
+
+    $entry = Entry::make()
+        ->id('current-occurrence-tag-test')
+        ->collection($collection)
+        ->locale('default')
+        ->slug('current-occurrence-tag-test')
+        ->published(true)
+        ->data(['dates' => [[
+            'start_date' => '2026-02-05',
+            'start_time' => '10:00',
+            'is_all_day' => false,
+            'is_recurring' => false,
+        ]]]);
+    $entry->save();
+
+    request()->query->set('date', '2026-02-05');
+
+    $result = calendarTag(context: ['id' => $entry->id()])->currentOccurrence();
+
+    expect($result)->toHaveCount(1)
+        ->and($result[0]['occurrence_id'])->toBe('current-occurrence-tag-test-2026-02-05-100000')
+        ->and($result[0]['url'])->toBe('/calendar/2026/02/05/current-occurrence-tag-test')
+        ->and($result[0]['occurrence_url'])->toBe($result[0]['url']);
+
+    request()->query->set('date', '2026-02-06');
+
+    expect(calendarTag(context: ['id' => $entry->id()])->currentOccurrence())->toBe([]);
 });
 
 test('ics_download_url uses context occurrence_id when present', function () {
