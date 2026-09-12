@@ -360,16 +360,7 @@ Variables available inside the tag pair: `month_label`, `year`, `month`, `prev_u
 
 ### `{{ calendar:current_occurrence }}`
 
-Resolves the current occurrence for the entry in context, based on the `?date=` query param. It returns a one-item occurrence list, or an empty list when the date does not resolve, so it follows the same pair and `{{ else }}` conventions as `{{ calendar:next_occurrences }}`. Variables available inside:
-
-- `occurrence_id` — stable occurrence identifier
-- `url` — the occurrence URL
-- `start` — Carbon date
-- `end` — Carbon date (nullable)
-- `is_all_day` — boolean
-- `is_recurring` — boolean
-- `recurrence_description` — human-readable recurrence rule
-- `occurrence_url` — alias of `url`, retained for existing templates
+Resolves the current occurrence for the entry in context from the `?date=` query param. See the tag method docblock for its loop-item fields and return behavior.
 
 ### `{{ calendar:next_occurrences }}`
 

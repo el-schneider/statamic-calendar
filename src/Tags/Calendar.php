@@ -54,6 +54,9 @@ class Calendar extends Tags
      *
      * Usage: {{ calendar:current_occurrence }} ... {{ /calendar:current_occurrence }}
      *
+     * Each item contains occurrence_id, url, start, end, is_all_day,
+     * is_recurring, recurrence_description, and occurrence_url (an alias of url).
+     *
      * @return list<array<string, mixed>>
      */
     public function currentOccurrence(): array
@@ -80,10 +83,9 @@ class Calendar extends Tags
             return [];
         }
 
-        return [[
-            ...$this->occurrenceToArray($occurrence),
-            'occurrence_url' => $occurrence->url(),
-        ]];
+        $item = $this->occurrenceToArray($occurrence);
+
+        return [[...$item, 'occurrence_url' => $item['url']]];
     }
 
     /**
