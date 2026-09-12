@@ -184,6 +184,8 @@ STATAMIC_CALENDAR_API_ENABLED=true
 
 `GET /api/calendar/occurrences`
 
+Window and status behavior: `ApiOccurrenceController::index()`.
+
 | Parameter   | Type     | Description                     | Default |
 | ----------- | -------- | ------------------------------- | ------- |
 | `from`      | `date`   | Start date (ISO 8601 or `Y-m-d`) | now     |
@@ -331,7 +333,7 @@ With the `date_segments` strategy, the occurrence controller also exposes the cu
 
 ### `{{ calendar }}`
 
-Lists occurrences from the cache (or resolves them live for non-default collections).
+Lists occurrences from the cache (or resolves them live for non-default collections). Window and status behavior: `Calendar::index()`.
 
 | Parameter    | Description              | Default      |
 | ------------ | ------------------------ | ------------ |
@@ -364,7 +366,7 @@ Show-page occurrence tag. See `Calendar::occurrence()` for its contract and the 
 
 ### `{{ calendar:next_occurrences }}`
 
-Lists upcoming occurrences for a specific entry.
+Lists upcoming occurrences for a specific entry. Window behavior: `OccurrenceWindow`.
 
 | Parameter | Description     | Default              |
 | --------- | --------------- | -------------------- |
@@ -398,7 +400,7 @@ Returns the .ics download URL for a single occurrence. Use inside any `{{ calend
 
 ### `{{ calendar:for_organizer }}`
 
-Lists upcoming occurrences for an organizer (from cache).
+Lists upcoming occurrences for an organizer (from cache). Status behavior: `Calendar::forOrganizer()`.
 
 | Parameter   | Description        | Default              |
 | ----------- | ------------------ | -------------------- |
