@@ -21,6 +21,7 @@ afterEach(function () {
         __DIR__.'/../__fixtures__/content/collections/events.yaml',
         __DIR__.'/../__fixtures__/content/collections/events/draft-event.md',
         __DIR__.'/../__fixtures__/content/collections/events/past-with-successor.md',
+        __DIR__.'/../__fixtures__/content/collections/events/past-with-ongoing-successor.md',
         __DIR__.'/../__fixtures__/content/collections/events/ended-series.md',
         __DIR__.'/../__fixtures__/content/collections/events/future-event.md',
         __DIR__.'/../__fixtures__/content/collections/events/today-event.md',
@@ -64,6 +65,24 @@ test('past occurrence redirects to the next upcoming occurrence', function () {
 
     expect($response->getStatusCode())->toBe(301)
         ->and(parse_url((string) $response->headers->get('Location'), PHP_URL_PATH))->toBe('/calendar/2026/07/18/past-with-successor');
+});
+
+test('past occurrence redirects beyond an ongoing recurring occurrence', function () {
+    Carbon::setTestNow('2026-07-11 19:00:00');
+    config()->set('statamic-calendar.url.strategy', 'date_segments');
+
+    occurrenceControllerEntry('past-with-ongoing-successor', [[
+        'start_date' => '2026-07-04',
+        'start_time' => '18:00',
+        'end_time' => '20:00',
+        'is_recurring' => true,
+        'frequency' => 'weekly',
+    ]]);
+
+    $response = app(OccurrenceController::class)->show(2026, 7, 4, 'past-with-ongoing-successor');
+
+    expect($response->getStatusCode())->toBe(301)
+        ->and(parse_url((string) $response->headers->get('Location'), PHP_URL_PATH))->toBe('/calendar/2026/07/18/past-with-ongoing-successor');
 });
 
 it('renders today occurrences instead of redirecting expired URLs', function (string $startTime) {

@@ -451,14 +451,25 @@ class Calendar extends Tags
 
         $allOccurrences = collect();
 
-        $resolverLimit = $paginate > 0 ? null : $limit;
+        // Status filters apply after resolving. Limiting each entry first could
+        // keep an old occurrence and discard the later matching one.
+        $resolverLimit = $paginate > 0 || $statuses ? null : $limit;
+        $resolverFrom = $from ?? Carbon::create(1, 1, 1, 0, 0, 0, OccurrenceWindow::now()->getTimezone());
+        $resolverTo = $to;
+
+        // A status-only query has no lower window bound. Match the cached
+        // collection's materialization range instead of deriving year 2 from
+        // the year-1 sentinel passed to the resolver.
+        if ($statuses && ! $to) {
+            $resolverTo = $now->copy()->addDays((int) config('statamic-calendar.cache.days_ahead', 365));
+        }
 
         foreach ($entries as $entry) {
             if (! $entry->published()) {
                 continue;
             }
 
-            $occurrences = $this->resolver->resolve($entry, $from ?? Carbon::create(1, 1, 1, 0, 0, 0, OccurrenceWindow::now()->getTimezone()), $to, $resolverLimit, $includeExcluded);
+            $occurrences = $this->resolver->resolve($entry, $resolverFrom, $resolverTo, $resolverLimit, $includeExcluded);
             $allOccurrences = $allOccurrences->merge($statuses
                 ? $occurrences->filter(fn (Occurrence $o) => OccurrenceWindow::hasStatus($o, $statuses, $now))
                 : $occurrences);

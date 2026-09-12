@@ -57,7 +57,7 @@ class OccurrenceResolver
     {
         $from ??= Carbon::now($this->timezone());
 
-        return $this->representativeCandidates($entry, $from)
+        return $this->nextCandidates($entry, $from)
             ->filter(fn (Occurrence $o) => $o->start->gt($from))
             ->sortBy(fn (Occurrence $o) => $o->start)
             ->first();
@@ -112,7 +112,30 @@ class OccurrenceResolver
             ->first();
     }
 
-    private function resolveDateRow(Entry $entry, array $row, Carbon $from, ?Carbon $to, ?int $limit, bool $includeExcluded = false, ?Carbon $representativeAt = null): Collection
+    private function nextCandidates(Entry $entry, Carbon $after): Collection
+    {
+        $occurrences = collect();
+
+        foreach ($this->dates($entry) as $dateRow) {
+            if (! is_array($dateRow)) {
+                continue;
+            }
+
+            $occurrences = $occurrences->merge($this->resolveDateRow(
+                $entry,
+                $dateRow,
+                Carbon::create(1, 1, 1, 0, 0, 0, $this->timezone()),
+                null,
+                null,
+                includeExcluded: false,
+                nextAfter: $after,
+            ));
+        }
+
+        return $occurrences;
+    }
+
+    private function resolveDateRow(Entry $entry, array $row, Carbon $from, ?Carbon $to, ?int $limit, bool $includeExcluded = false, ?Carbon $representativeAt = null, ?Carbon $nextAfter = null): Collection
     {
         $isRecurring = (bool) ($row['is_recurring'] ?? false);
 
@@ -120,12 +143,12 @@ class OccurrenceResolver
             return $this->resolveSingleDate($entry, $row, $from, $to);
         }
 
-        return $this->resolveRecurringDate($entry, $row, $from, $to, $limit, $includeExcluded, $representativeAt);
+        return $this->resolveRecurringDate($entry, $row, $from, $to, $limit, $includeExcluded, $representativeAt, $nextAfter);
     }
 
-    private function resolveRecurringDate(Entry $entry, array $row, Carbon $from, ?Carbon $to, ?int $limit, bool $includeExcluded = false, ?Carbon $representativeAt = null): Collection
+    private function resolveRecurringDate(Entry $entry, array $row, Carbon $from, ?Carbon $to, ?int $limit, bool $includeExcluded = false, ?Carbon $representativeAt = null, ?Carbon $nextAfter = null): Collection
     {
-        if (! $to && ! $limit && ! $representativeAt) {
+        if (! $to && ! $limit && ! $representativeAt && ! $nextAfter) {
             $to = $from->copy()->addYear();
         }
 
@@ -205,6 +228,14 @@ class OccurrenceResolver
             );
 
             if (! OccurrenceWindow::matches($occurrence, $from, $to)) {
+                continue;
+            }
+
+            if ($nextAfter) {
+                if ($occurrence->start->gt($nextAfter)) {
+                    return collect([$occurrence]);
+                }
+
                 continue;
             }
 
