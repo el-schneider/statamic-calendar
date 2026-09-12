@@ -24,7 +24,7 @@ test('rebuild skips unpublished entries', function () {
     $publishedEntry->shouldReceive('published')->andReturnTrue();
     $publishedEntry->shouldReceive('id')->andReturn('published-entry');
     $publishedEntry->shouldReceive('slug')->andReturn('published-event');
-    $publishedEntry->shouldReceive('url')->andReturn('/events/published-event');
+    $publishedEntry->shouldReceive('uri')->andReturn('/events/published-event');
     $publishedEntry->shouldReceive('get')->with('dates')->andReturn([['start_date' => '2026-03-10']]);
     $publishedEntry->shouldReceive('get')->with('title')->andReturn('Published event');
     $publishedEntry->shouldReceive('get')->andReturn(null);
@@ -66,7 +66,7 @@ test('rebuild persists OccurrenceBuilding extras without letting them shadow cor
     $entry->shouldReceive('id')->andReturn('entry-1');
     $entry->shouldReceive('published')->andReturnTrue();
     $entry->shouldReceive('slug')->andReturn('demo-event');
-    $entry->shouldReceive('url')->andReturn('/events/demo-event');
+    $entry->shouldReceive('uri')->andReturn('/events/demo-event');
     $entry->shouldReceive('get')->with('dates')->andReturn([['start_date' => '2026-03-10']]);
     $entry->shouldReceive('get')->with('title')->andReturn('Original title');
     $entry->shouldReceive('get')->andReturn(null);

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Carbon\Carbon;
+use ElSchneider\StatamicCalendar\Occurrences\Occurrence;
 use Illuminate\Support\Facades\File;
 use Statamic\Contracts\Entries\Entry as EntryContract;
 use Statamic\Facades\Collection;
@@ -55,6 +56,24 @@ test('query string event urls retain the native entry route', function () {
     ]);
 
     expect($entry->url())->toBe('/events/community-meetup?date=2026-07-12');
+});
+
+test('query string occurrence urls use the native entry route', function () {
+    Carbon::setTestNow('2026-07-11 12:00:00');
+    config()->set('statamic-calendar.url.strategy', 'query_string');
+
+    $collection = Collection::make('events')->routes('/events/{slug}');
+    $collection->save();
+
+    $entry = calendarEntry([
+        ['start_date' => '2026-07-12', 'start_time' => '18:00'],
+        ['start_date' => '2026-07-13', 'start_time' => '18:00'],
+    ]);
+
+    $occurrence = new Occurrence($entry, Carbon::parse('2026-07-13 18:00'), null, false, false);
+
+    expect($entry->url())->toBe('/events/community-meetup?date=2026-07-12')
+        ->and($occurrence->url())->toBe('/events/community-meetup?date=2026-07-13');
 });
 
 test('query string events without a native route have no public or preview url', function () {
