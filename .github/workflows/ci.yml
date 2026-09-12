@@ -13,12 +13,10 @@ jobs:
     name: Prettier
     runs-on: ubuntu-latest
     steps:
-      # v7
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      # v7
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
@@ -30,13 +28,11 @@ jobs:
     name: Pint
     runs-on: ubuntu-latest
     steps:
-      # v7
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
 
-      # v2
-      - uses: shivammathur/setup-php@b604ade2a87db23f8871b7182e69ec5e75effb45
+      - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
           coverage: none
@@ -54,13 +50,11 @@ jobs:
         php: ['8.3', '8.4']
         statamic: ['^5.74', '^6.20.3']
     steps:
-      # v7
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
 
-      # v2
-      - uses: shivammathur/setup-php@b604ade2a87db23f8871b7182e69ec5e75effb45
+      - uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
           coverage: none
