@@ -175,7 +175,7 @@ return [
         'key' => 'statamic_calendar.occurrences',
         'days_ahead' => 365,
 
-        // Rebuild so recurring events keep filling the rolling days_ahead window. Set false to manage it yourself.
+        // Rebuild so recurring events keep filling the rolling days_ahead window. Use everyMinute, hourly, twiceDaily, daily, weekly, or false to manage it yourself.
         'rebuild_schedule' => 'daily',
     ],
 ];

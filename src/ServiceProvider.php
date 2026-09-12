@@ -14,6 +14,7 @@ use ElSchneider\StatamicCalendar\Occurrences\OccurrenceCache;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Route;
+use InvalidArgumentException;
 use Statamic\Contracts\Entries\Entry as EntryContract;
 use Statamic\Events\CollectionSaved;
 use Statamic\Events\EntryDeleted;
@@ -90,9 +91,23 @@ class ServiceProvider extends AddonServiceProvider
      */
     protected function schedule(Schedule $schedule): void
     {
-        if ($frequency = config('statamic-calendar.cache.rebuild_schedule', 'daily')) {
-            $schedule->command('occurrences:rebuild')->{$frequency}();
+        $frequency = config('statamic-calendar.cache.rebuild_schedule', 'daily');
+
+        if ($frequency === false) {
+            return;
         }
+
+        $frequencies = ['everyMinute', 'hourly', 'twiceDaily', 'daily', 'weekly'];
+
+        if (! is_string($frequency) || ! in_array($frequency, $frequencies, true)) {
+            throw new InvalidArgumentException(sprintf(
+                'Invalid statamic-calendar.cache.rebuild_schedule value "%s". Allowed values: %s, or false.',
+                is_scalar($frequency) ? (string) $frequency : get_debug_type($frequency),
+                implode(', ', $frequencies),
+            ));
+        }
+
+        $schedule->command('occurrences:rebuild')->{$frequency}()->withoutOverlapping();
     }
 
     protected function registerRoutes(): void

@@ -9,5 +9,6 @@ test('schedules the occurrence cache rebuild daily by default', function () {
         ->first(fn ($event) => str_contains((string) $event->command, 'occurrences:rebuild'));
 
     expect($event)->not->toBeNull()
-        ->expression->toBe('0 0 * * *');
+        ->expression->toBe('0 0 * * *')
+        ->withoutOverlapping->toBeTrue();
 });
