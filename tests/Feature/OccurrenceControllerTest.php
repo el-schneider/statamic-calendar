@@ -73,6 +73,7 @@ it('renders today occurrences instead of redirecting expired URLs', function (st
     occurrenceControllerEntry('today-event', [[
         'start_date' => '2026-07-11',
         'start_time' => $startTime,
+        'is_all_day' => true,
         'is_recurring' => true,
         'frequency' => 'weekly',
     ]]);

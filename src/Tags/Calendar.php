@@ -9,6 +9,7 @@ use ElSchneider\StatamicCalendar\Facades\Occurrences;
 use ElSchneider\StatamicCalendar\Occurrences\Occurrence;
 use ElSchneider\StatamicCalendar\Occurrences\OccurrenceData;
 use ElSchneider\StatamicCalendar\Occurrences\OccurrenceResolver;
+use ElSchneider\StatamicCalendar\Occurrences\OccurrenceWindow;
 use Illuminate\Support\Facades\URL;
 use Statamic\Contracts\Taxonomies\Term;
 use Statamic\Extensions\Pagination\LengthAwarePaginator;
@@ -39,14 +40,16 @@ class Calendar extends Tags
         $paginate = $this->params->int('paginate');
         $pageName = (string) $this->params->get('page_name', 'page');
         $includeExcluded = $this->params->bool('include_excluded', false);
+        $statuses = $this->statuses();
+        $now = $statuses ? OccurrenceWindow::now() : null;
 
         $tags = $this->params->get('tags');
 
         if ($collection === config('statamic-calendar.collection', 'events')) {
-            return $this->indexFromCache($from, $to, $limit, $tags, $sort, $paginate, $pageName, $includeExcluded);
+            return $this->indexFromCache($from, $to, $limit, $tags, $sort, $paginate, $pageName, $includeExcluded, $statuses, $now);
         }
 
-        return $this->indexFromResolver($collection, $from, $to, $limit, $tags, $sort, $paginate, $pageName, $includeExcluded);
+        return $this->indexFromResolver($collection, $from, $to, $limit, $tags, $sort, $paginate, $pageName, $includeExcluded, $statuses, $now);
     }
 
     /**
@@ -59,9 +62,12 @@ class Calendar extends Tags
         $from = $this->params->has('from') ? Carbon::parse((string) $this->params->get('from')) : Carbon::now();
         $paginate = $this->params->int('paginate');
         $pageName = (string) $this->params->get('page_name', 'page');
+        $statuses = $this->statuses();
+        $now = $statuses ? OccurrenceWindow::now() : null;
 
         $occurrences = Occurrences::forOrganizer((is_string($organizerId) || is_int($organizerId)) ? (string) $organizerId : null)
-            ->filter(fn (OccurrenceData $o) => $o->start->gte($from))
+            ->filter(fn (OccurrenceData $o) => OccurrenceWindow::matches($o, $from))
+            ->when($statuses, fn ($c) => $c->filter(fn (OccurrenceData $o) => OccurrenceWindow::hasStatus($o, $statuses, $now)))
             ->sortBy(fn (OccurrenceData $o) => $o->start);
 
         $mapped = $occurrences->map(fn (OccurrenceData $o) => $this->occurrenceDataToArray($o))->values();
@@ -335,11 +341,12 @@ class Calendar extends Tags
         return $labels;
     }
 
-    private function indexFromCache(Carbon $from, ?Carbon $to, ?int $limit, $tags, string $sort = 'asc', int $paginate = 0, string $pageName = 'page', bool $includeExcluded = false): mixed
+    private function indexFromCache(Carbon $from, ?Carbon $to, ?int $limit, $tags, string $sort = 'asc', int $paginate = 0, string $pageName = 'page', bool $includeExcluded = false, array $statuses = [], ?Carbon $now = null): mixed
     {
-        $occurrences = Occurrences::all($includeExcluded)
-            ->filter(fn (OccurrenceData $o) => $o->start->gte($from))
-            ->when($to, fn ($c) => $c->filter(fn (OccurrenceData $o) => $o->start->lte($to)));
+        $occurrences = ($statuses
+            ? Occurrences::status($statuses, $now, $includeExcluded)
+            : Occurrences::all($includeExcluded))
+            ->filter(fn (OccurrenceData $o) => OccurrenceWindow::matches($o, $from, $to));
 
         if ($tags) {
             $tagSlugs = $this->normalizeTagSlugs($tags);
@@ -363,6 +370,19 @@ class Calendar extends Tags
         }
 
         return $this->output($mapped);
+    }
+
+    /** @return array<string> */
+    private function statuses(): array
+    {
+        $statuses = $this->params->get('status');
+        $statuses = is_string($statuses) ? explode(',', $statuses) : $statuses;
+
+        return collect($statuses)
+            ->map(fn ($status) => is_string($status) ? trim($status) : '')
+            ->filter(fn ($status) => in_array($status, ['upcoming', 'ongoing', 'past'], true))
+            ->values()
+            ->all();
     }
 
     /**
@@ -405,7 +425,7 @@ class Calendar extends Tags
      * pass an explicit `to` to shrink the working set, or use the cached default
      * collection.
      */
-    private function indexFromResolver(string $collection, Carbon $from, ?Carbon $to, ?int $limit, $tags, string $sort = 'asc', int $paginate = 0, string $pageName = 'page', bool $includeExcluded = false): mixed
+    private function indexFromResolver(string $collection, Carbon $from, ?Carbon $to, ?int $limit, $tags, string $sort = 'asc', int $paginate = 0, string $pageName = 'page', bool $includeExcluded = false, array $statuses = [], ?Carbon $now = null): mixed
     {
         $query = Entry::query()->where('collection', $collection);
 
@@ -433,7 +453,9 @@ class Calendar extends Tags
             }
 
             $occurrences = $this->resolver->resolve($entry, $from, $to, $resolverLimit, $includeExcluded);
-            $allOccurrences = $allOccurrences->merge($occurrences);
+            $allOccurrences = $allOccurrences->merge($statuses
+                ? $occurrences->filter(fn (Occurrence $o) => OccurrenceWindow::hasStatus($o, $statuses, $now))
+                : $occurrences);
         }
 
         $allOccurrences = $sort === 'desc'

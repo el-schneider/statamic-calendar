@@ -49,7 +49,11 @@ class OccurrenceResolver
         $now = Carbon::now($this->timezone());
         $occurrences = $this->representativeCandidates($entry, $now);
 
-        return $this->firstUpcoming($occurrences, $now)
+        return $occurrences
+            ->filter(fn (Occurrence $o) => OccurrenceWindow::isOngoing($o, $now))
+            ->sortBy(fn (Occurrence $o) => $o->start)
+            ->first()
+            ?? $this->firstUpcoming($occurrences, $now)
             ?? $occurrences->sortBy(fn (Occurrence $o) => $o->start)->last();
     }
 
@@ -107,7 +111,7 @@ class OccurrenceResolver
     private function firstUpcoming(Collection $occurrences, Carbon $from): ?Occurrence
     {
         return $occurrences
-            ->filter(fn (Occurrence $o) => $o->start->gte($from))
+            ->filter(fn (Occurrence $o) => OccurrenceWindow::matches($o, $from))
             ->sortBy(fn (Occurrence $o) => $o->start)
             ->first();
     }
@@ -178,10 +182,6 @@ class OccurrenceResolver
                 continue;
             }
 
-            if ($start->lt($from)) {
-                continue;
-            }
-
             if ($to && $start->gt($to)) {
                 break;
             }
@@ -207,6 +207,10 @@ class OccurrenceResolver
                     ? ($replacementsByDate[$start->format('Y-m-d')]['datetime'] ?? null)
                     : null,
             );
+
+            if (! OccurrenceWindow::matches($occurrence, $from, $to)) {
+                continue;
+            }
 
             if ($representativeAt) {
                 $occurrences = collect([$occurrence]);
@@ -340,20 +344,19 @@ class OccurrenceResolver
         }
 
         $end = $this->singleDateEnd($entry, $row, $start);
+        $occurrence = new Occurrence(
+            entry: $entry,
+            start: $start,
+            end: $end,
+            isAllDay: (bool) ($row['is_all_day'] ?? false),
+            isRecurring: false,
+        );
 
-        if ($start->lt($from) || ($to && $start->gt($to))) {
+        if (! OccurrenceWindow::matches($occurrence, $from, $to)) {
             return collect();
         }
 
-        return collect([
-            new Occurrence(
-                entry: $entry,
-                start: $start,
-                end: $end,
-                isAllDay: (bool) ($row['is_all_day'] ?? false),
-                isRecurring: false,
-            ),
-        ]);
+        return collect([$occurrence]);
     }
 
     /**

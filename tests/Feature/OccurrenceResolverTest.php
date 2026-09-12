@@ -197,6 +197,40 @@ test('representative occurrence finds the latest event without retaining its ful
         ->toBe(Carbon::parse('2026-01-01')->addDays(9_999)->toDateString());
 });
 
+test('window includes an all-day occurrence that is in progress', function () {
+    config()->set('statamic-calendar.timezone', 'UTC');
+
+    $occurrences = resolveFor([[
+        'start_date' => '2026-06-10',
+        'end_date' => '2026-06-14',
+        'is_all_day' => true,
+        'is_recurring' => false,
+    ]], Carbon::parse('2026-06-12 12:00 UTC'));
+
+    expect($occurrences)->toHaveCount(1);
+});
+
+test('representative occurrence prefers an occurrence in progress', function () {
+    config()->set('statamic-calendar.timezone', 'UTC');
+    Carbon::setTestNow('2026-06-12 12:00:00 UTC');
+
+    $occurrence = (new OccurrenceResolver)->representative(entryWithDates([
+        [
+            'start_date' => '2026-06-10',
+            'end_date' => '2026-06-14',
+            'is_all_day' => true,
+            'is_recurring' => false,
+        ],
+        [
+            'start_date' => '2026-06-20',
+            'is_all_day' => true,
+            'is_recurring' => false,
+        ],
+    ]));
+
+    expect($occurrence?->start->toDateString())->toBe('2026-06-10');
+});
+
 test('a malformed start_time falls back to midnight instead of crashing the rebuild', function () {
     $occurrences = resolveDates([[
         'start_date' => '2025-06-01',

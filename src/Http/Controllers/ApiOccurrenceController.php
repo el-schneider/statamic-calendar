@@ -7,6 +7,7 @@ namespace ElSchneider\StatamicCalendar\Http\Controllers;
 use Carbon\Carbon;
 use ElSchneider\StatamicCalendar\Facades\Occurrences;
 use ElSchneider\StatamicCalendar\Occurrences\OccurrenceData;
+use ElSchneider\StatamicCalendar\Occurrences\OccurrenceWindow;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -22,10 +23,13 @@ class ApiOccurrenceController
         $tags = $request->query('tags');
         $organizer = $request->query('organizer');
         $includeExcluded = $request->boolean('include_excluded');
+        $statuses = array_filter(array_map('trim', explode(',', (string) $request->query('status'))), fn (string $status) => in_array($status, ['upcoming', 'ongoing', 'past'], true));
+        $now = $statuses ? OccurrenceWindow::now() : null;
 
-        $occurrences = Occurrences::all($includeExcluded)
-            ->filter(fn (OccurrenceData $o) => $o->start->gte($from))
-            ->when($to, fn ($c) => $c->filter(fn (OccurrenceData $o) => $o->start->lte($to)));
+        $occurrences = ($statuses
+            ? Occurrences::status($statuses, $now, $includeExcluded)
+            : Occurrences::all($includeExcluded))
+            ->filter(fn (OccurrenceData $o) => OccurrenceWindow::matches($o, $from, $to));
 
         if ($tags) {
             $tagSlugs = array_filter(explode(',', (string) $tags));

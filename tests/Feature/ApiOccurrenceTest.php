@@ -113,6 +113,19 @@ test('filters by from and to', function () {
         ->assertJsonPath('data.0.title', 'Laravel Meetup');
 });
 
+test('includes timed occurrences in progress from the window start', function () {
+    $this->occurrences->push(makeApiOccurrence([
+        'id' => 'in-progress-2026-03-01-090000',
+        'title' => 'In Progress',
+        'start' => '2026-03-01T09:00:00+00:00',
+        'end' => '2026-03-01T11:00:00+00:00',
+    ]));
+
+    $this->getJson('/api/calendar/occurrences?from=2026-03-01T10:00:00Z')
+        ->assertOk()
+        ->assertJsonPath('data.0.title', 'In Progress');
+});
+
 test('includes past occurrences when from is in the past', function () {
     $this->getJson('/api/calendar/occurrences?from=2026-02-01')
         ->assertOk()

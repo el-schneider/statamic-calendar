@@ -186,14 +186,15 @@ STATAMIC_CALENDAR_API_ENABLED=true
 
 | Parameter   | Type     | Description                     | Default |
 | ----------- | -------- | ------------------------------- | ------- |
-| `from`      | `date`   | Start date (ISO 8601 or `Y-m-d`) | now     |
-| `to`        | `date`   | End date                        | —       |
+| `from`      | `date`   | Window start; includes occurrences ending on or after it | now     |
+| `to`        | `date`   | Window end; includes occurrences starting on or before it | —       |
 | `limit`     | `int`    | Max occurrences (ignored when paginating) | —       |
 | `page`      | `int`    | Page number; enables pagination | —       |
 | `per_page`  | `int`    | Items per page; also enables pagination | `15`    |
 | `sort`      | `string` | `asc` or `desc`                 | `asc`   |
 | `tags`      | `string` | Comma-separated tag slugs       | —       |
 | `organizer` | `string` | Organizer entry ID              | —       |
+| `status`    | `string` | Comma-separated `upcoming`, `ongoing`, or `past` | —       |
 | `include_excluded` | `bool` | Surface cancelled/rescheduled occurrences (`is_excluded`, `replacement_date`, `replaces_date`) | `false` |
 
 ### Response
@@ -335,8 +336,9 @@ Lists occurrences from the cache (or resolves them live for non-default collecti
 
 | Parameter    | Description              | Default      |
 | ------------ | ------------------------ | ------------ |
-| `from`       | Start date               | `now`        |
-| `to`         | End date                 | —            |
+| `from`       | Window start; includes occurrences ending on or after it | `now` |
+| `to`         | Window end; includes occurrences starting on or before it | — |
+| `status`     | Comma-separated `upcoming`, `ongoing`, or `past` | — |
 | `limit`      | Max occurrences (ignored when paginating) | —            |
 | `paginate`   | Items per page           | —            |
 | `page_name`  | Query string page key    | `page`       |
@@ -369,8 +371,8 @@ Lists upcoming occurrences for a specific entry.
 | Parameter | Description     | Default              |
 | --------- | --------------- | -------------------- |
 | `entry`   | Entry ID        | current context `id` |
-| `from`    | Start date      | `now`                |
-| `to`      | End date        | —                    |
+| `from`    | Window start; includes occurrences ending on or after it | `now` |
+| `to`      | Window end; includes occurrences starting on or before it | — |
 | `limit`   | Max occurrences | `5`                  |
 
 ### `{{ calendar:ics_url }}`
@@ -407,6 +409,7 @@ Lists upcoming occurrences for an organizer (from cache).
 | `paginate`  | Items per page     | —                    |
 | `page_name` | Query string page key | `page`             |
 | `as`        | Results variable name when using pagination or grouped output | `occurrences` |
+| `status`    | Comma-separated `upcoming`, `ongoing`, or `past` | — |
 
 ## Configuration
 
