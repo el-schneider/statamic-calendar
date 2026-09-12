@@ -178,16 +178,13 @@ test('accepts native field definitions for registered cached extras', function (
         ->assertJsonPath('data.calendarOccurrences.data.0.attendance', 42);
 });
 
-test('executes the published query with registered extras and rejects unregistered extras', function () {
+test('resolves registered scalar and nested extras and rejects unregistered extras', function () {
     GraphQL::addType(TestVenueType::class);
     GraphQL::addField(CalendarOccurrenceType::NAME, 'attendance', fn () => ['type' => GraphQL::nonNull(GraphQL::int()), 'resolve' => fn (array $occurrence) => $occurrence['attendance']]);
     GraphQL::addField(CalendarOccurrenceType::NAME, 'venue', fn () => ['type' => GraphQL::type(TestVenueType::NAME), 'resolve' => fn (array $occurrence) => $occurrence['venue']]);
     $this->calendarOccurrences->transform(fn (OccurrenceData $occurrence) => OccurrenceData::fromArray([...$occurrence->toArray(), 'attendance' => 42, 'venue' => ['name' => 'Town Hall'], 'private_note' => 'Not registered']));
 
-    graphql(
-        file_get_contents(dirname(__DIR__, 2).'/resources/examples/graphql/calendar-occurrences.graphql'),
-        ['from' => '2026-03-01', 'to' => '2026-03-10', 'page' => 1]
-    )
+    graphql('{ calendarOccurrences { data { attendance venue { name } } } }')
         ->assertOk()->assertJsonMissingPath('errors')
         ->assertJsonPath('data.calendarOccurrences.data.0.attendance', 42)
         ->assertJsonPath('data.calendarOccurrences.data.0.venue.name', 'Town Hall');
