@@ -1,4 +1,6 @@
 .DS_Store
+/.worktrees/
+/.sandboxes/
 node_modules
 vendor
 composer.lock

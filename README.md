@@ -11,6 +11,7 @@ Recurring events and cached occurrences for Statamic. Works with Statamic 5 and 
 - Antlers tags for listing, current occurrence, next occurrences, and month grid
 - Month calendar view — server-rendered, navigable via query params, no JS required
 - JSON REST API for JS-based calendar components (opt-in)
+- Native GraphQL occurrence query (opt-in)
 - iCalendar (.ics) feed for calendar app subscriptions + per-event "Add to calendar" downloads
 - Cache-build event for adding custom occurrence fields to tag/API output
 - Pagination for REST API responses and Antlers occurrence lists
@@ -251,9 +252,101 @@ fetch('/api/calendar/occurrences?tags=music,art&organizer=org-123')
 
 The API uses Laravel's `api` middleware group, so cross-origin requests are handled by your app's `config/cors.php`. Laravel's default config already allows `api/*` paths from all origins — adjust as needed.
 
+## GraphQL
+
+Enable Statamic GraphQL with `STATAMIC_GRAPHQL_ENABLED=true` and this addon's query with `STATAMIC_CALENDAR_GRAPHQL_ENABLED=true`. Requires Statamic Pro. The addon exposes cached core calendar fields independently from collection permissions; native GraphQL endpoint authorization still applies.
+
+Filters are arguments on `calendarOccurrences`. Query events overlapping a date range, with pagination:
+
+```graphql
+{
+    calendarOccurrences(
+        from: "2026-09-01T00:00:00Z"
+        to: "2026-09-30T23:59:59Z"
+        limit: 20
+        page: 1
+    ) {
+        total
+        current_page
+        data {
+            title
+            start
+            end
+            url
+        }
+    }
+}
+```
+
+Bounds are inclusive and match overlapping events, not just events starting within the range. A bare `to` date means midnight at its start; include a time to cover the full day.
+
+Combine filters to find upcoming or ongoing music/art events, latest starts first:
+
+```graphql
+{
+    calendarOccurrences(status: [upcoming, ongoing], tags: ["music", "art"], sort: desc, limit: 5) {
+        data {
+            title
+            start
+            organizer_title
+        }
+    }
+}
+```
+
+Tags match any supplied slug. Other arguments include `organizer` (entry ID) and `include_excluded` (cancelled or rescheduled-away occurrences). Without `from` or a status filter, results start from now and include ongoing events. See [Custom Occurrence Fields](#custom-occurrence-fields) for typed GraphQL extensions.
+
 ## Custom Occurrence Fields
 
-Need images, categories, or occurrence-specific flags in API/tag output? Listen to `ElSchneider\StatamicCalendar\Events\OccurrenceBuilding`. It runs once per materialized occurrence during cache rebuild, with access to both the source entry and resolved occurrence. See `config/statamic-calendar.php` and the event class docblock for the full recipe.
+Listen to `OccurrenceBuilding` to add custom values to each cached occurrence. The listener receives the source entry and resolved occurrence. Extras appear in REST and Antlers output; GraphQL requires explicitly typed fields.
+
+For a nested GraphQL field, define a type in `app/GraphQL/VenueType.php`:
+
+```php
+namespace App\GraphQL;
+
+use Rebing\GraphQL\Support\Type;
+use Statamic\Facades\GraphQL;
+
+class VenueType extends Type
+{
+    public const NAME = 'EventVenue';
+
+    protected $attributes = ['name' => self::NAME];
+
+    public function fields(): array
+    {
+        return [
+            'name' => ['type' => GraphQL::string()],
+        ];
+    }
+}
+```
+
+Register the listener and GraphQL fields from an application service provider:
+
+```php
+use App\GraphQL\VenueType;
+use ElSchneider\StatamicCalendar\Events\OccurrenceBuilding;
+use ElSchneider\StatamicCalendar\GraphQL\Types\CalendarOccurrenceType;
+use Illuminate\Support\Facades\Event;
+use Statamic\Facades\GraphQL;
+
+Event::listen(OccurrenceBuilding::class, function (OccurrenceBuilding $event): void {
+    $event->extra['attendance'] = (int) $event->entry->get('attendance');
+    $event->extra['venue'] = ['name' => $event->entry->get('venue_name')];
+});
+
+GraphQL::addType(VenueType::class);
+GraphQL::addField(CalendarOccurrenceType::NAME, 'attendance', fn () => [
+    'type' => GraphQL::nonNull(GraphQL::int()),
+]);
+GraphQL::addField(CalendarOccurrenceType::NAME, 'venue', fn () => [
+    'type' => GraphQL::type(VenueType::NAME),
+]);
+```
+
+Rebuild with `php artisan occurrences:rebuild` before querying these fields: existing cached occurrences do not contain the new values. Add `attendance` and `venue { name }` to a query's `data` selection. Fields resolve from the cached array by name; an optional `resolve` callback receives that array as its root value. Unregistered extras are not exposed through GraphQL.
 
 ## Setting Up Templates
 

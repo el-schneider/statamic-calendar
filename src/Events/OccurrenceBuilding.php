@@ -10,7 +10,7 @@ use Statamic\Contracts\Entries\Entry;
 /**
  * Fired during occurrence cache rebuild, once per materialized occurrence,
  * before the payload is stored. Listeners can add `$extra` fields that end up
- * on `OccurrenceData` and in API / tag output.
+ * on `OccurrenceData`, REST API and tag output, and registered GraphQL fields.
  *
  * Runs at cache build time only — zero cost on reads. Results are frozen
  * until the next rebuild; depend on entry and occurrence data, not request context.
