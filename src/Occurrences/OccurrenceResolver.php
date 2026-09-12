@@ -8,6 +8,7 @@ use Carbon\Carbon;
 use DateTimeImmutable;
 use DateTimeZone;
 use Illuminate\Support\Collection;
+use InvalidArgumentException;
 use RRule\RRule;
 use RRule\RSet;
 use Statamic\Entries\Entry;
@@ -333,11 +334,12 @@ class OccurrenceResolver
     private function resolveSingleDate(Entry $entry, array $row, Carbon $from, ?Carbon $to): Collection
     {
         $start = $this->localDateTime($row['start_date'] ?? null, $row['start_time'] ?? null);
-        $end = $this->localDateTime($row['end_date'] ?? null, $row['end_time'] ?? null);
 
         if (! $start) {
             return collect();
         }
+
+        $end = $this->singleDateEnd($entry, $row, $start);
 
         if ($start->lt($from) || ($to && $start->gt($to))) {
             return collect();
@@ -352,6 +354,39 @@ class OccurrenceResolver
                 isRecurring: false,
             ),
         ]);
+    }
+
+    /**
+     * Without an end_date the row is a single day: end_time lands on the start
+     * day and must come after start_time; an overnight span needs an explicit
+     * end_date. A timed row with an end_date but no end_time ends when that day
+     * ends. No end at all is a valid state (start known, duration open).
+     */
+    private function singleDateEnd(Entry $entry, array $row, Carbon $start): ?Carbon
+    {
+        $endTime = $this->localTime($row['end_time'] ?? null);
+        $endDay = $this->localDate($row['end_date'] ?? null);
+
+        if ($endDay) {
+            return $endTime
+                ? Carbon::parse($endDay.' '.$endTime, $this->timezone())
+                : Carbon::parse($endDay, $this->timezone())->endOfDay();
+        }
+
+        if (! $endTime) {
+            return null;
+        }
+
+        $end = $start->copy()->setTimeFromTimeString($endTime);
+
+        if ($end->lte($start)) {
+            throw new InvalidArgumentException(sprintf(
+                'Entry %s: end_time %s is not after start_time on %s; set an end_date for overnight events.',
+                $entry->id(), $endTime, $start->toDateString()
+            ));
+        }
+
+        return $end;
     }
 
     /**

@@ -38,10 +38,13 @@ tabs:
                     input_type: time
                     width: 50
                     placeholder: '09:00'
+                    validate:
+                      - 'required_if:{this}.is_all_day,false'
                 - handle: end_date
                   field:
                     type: date
                     display: 'End Date'
+                    instructions: 'Leave blank for a single-day event. Required for overnight events.'
                     time_enabled: false
                     width: 50
                     validate:
@@ -50,6 +53,7 @@ tabs:
                   field:
                     type: text
                     display: 'End Time'
+                    instructions: 'Optional. Without an end date it must be after the start time.'
                     input_type: time
                     width: 50
                     placeholder: '17:00'
@@ -57,6 +61,7 @@ tabs:
                   field:
                     type: toggle
                     display: 'All Day Event'
+                    default: false
                     width: 50
                 - handle: is_recurring
                   field:
