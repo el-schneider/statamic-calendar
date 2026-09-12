@@ -231,6 +231,24 @@ test('representative occurrence prefers an occurrence in progress', function () 
     expect($occurrence?->start->toDateString())->toBe('2026-06-10');
 });
 
+test('representative occurrence keeps a recurring timed occurrence in progress', function () {
+    config()->set('statamic-calendar.timezone', 'UTC');
+    Carbon::setTestNow('2026-06-08 19:00:00 UTC');
+
+    $occurrence = (new OccurrenceResolver)->representative(entryWithDates([[
+        'start_date' => '2026-06-01',
+        'start_time' => '18:00',
+        'end_time' => '20:00',
+        'is_recurring' => true,
+        'frequency' => 'WEEKLY',
+        'interval' => 1,
+        'recurrence_end' => 'count',
+        'count' => 8,
+    ]]));
+
+    expect($occurrence?->start->format('Y-m-d H:i'))->toBe('2026-06-08 18:00');
+});
+
 test('a malformed start_time falls back to midnight instead of crashing the rebuild', function () {
     $occurrences = resolveDates([[
         'start_date' => '2025-06-01',

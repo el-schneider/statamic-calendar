@@ -5,32 +5,63 @@ declare(strict_types=1);
 namespace ElSchneider\StatamicCalendar\Occurrences;
 
 use Carbon\Carbon;
+use InvalidArgumentException;
 
 /**
  * Interval semantics shared by cache, resolver, and presentation reads.
  *
  * An occurrence intersects a window when its effective end is on or after
  * the window start and its start is on or before the window end. All-day
- * occurrences remain active through the end of their final local day.
+ * occurrences remain active through the end of their final local day. Timed
+ * occurrences without an explicit end also remain active through that day.
  */
 class OccurrenceWindow
 {
     public static function effectiveEnd(Occurrence|OccurrenceData $occurrence): Carbon
     {
-        $end = ($occurrence->end ?? $occurrence->start)->copy();
+        if (! $occurrence->end) {
+            return $occurrence->start->copy()->endOfDay();
+        }
+
+        $end = $occurrence->end->copy();
 
         return $occurrence->isAllDay ? $end->endOfDay() : $end;
     }
 
-    public static function matches(Occurrence|OccurrenceData $occurrence, Carbon $from, ?Carbon $to = null): bool
+    public static function matches(Occurrence|OccurrenceData $occurrence, ?Carbon $from = null, ?Carbon $to = null): bool
     {
-        return self::effectiveEnd($occurrence)->gte($from)
+        return (! $from || self::effectiveEnd($occurrence)->gte($from))
             && (! $to || $occurrence->start->lte($to));
     }
 
     public static function isOngoing(Occurrence|OccurrenceData $occurrence, Carbon $at): bool
     {
         return $occurrence->start->lte($at) && self::effectiveEnd($occurrence)->gte($at);
+    }
+
+    /**
+     * @return array<string> Any of upcoming, ongoing, or past.
+     *
+     * @throws InvalidArgumentException When a supplied status is not supported.
+     */
+    public static function parseStatuses(mixed $statuses): array
+    {
+        if ($statuses === null || $statuses === '') {
+            return [];
+        }
+
+        $statuses = is_string($statuses) ? explode(',', $statuses) : (is_array($statuses) ? $statuses : [$statuses]);
+        $statuses = collect($statuses)
+            ->map(fn ($status) => is_string($status) ? trim($status) : '')
+            ->filter()
+            ->values();
+
+        $invalid = $statuses->reject(fn (string $status) => in_array($status, ['upcoming', 'ongoing', 'past'], true));
+        if ($invalid->isNotEmpty()) {
+            throw new InvalidArgumentException('Invalid occurrence status: '.$invalid->implode(', '));
+        }
+
+        return $statuses->all();
     }
 
     /** @param array<string> $statuses */

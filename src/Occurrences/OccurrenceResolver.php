@@ -49,11 +49,7 @@ class OccurrenceResolver
         $now = Carbon::now($this->timezone());
         $occurrences = $this->representativeCandidates($entry, $now);
 
-        return $occurrences
-            ->filter(fn (Occurrence $o) => OccurrenceWindow::isOngoing($o, $now))
-            ->sortBy(fn (Occurrence $o) => $o->start)
-            ->first()
-            ?? $this->firstUpcoming($occurrences, $now)
+        return $this->firstUpcoming($occurrences, $now)
             ?? $occurrences->sortBy(fn (Occurrence $o) => $o->start)->last();
     }
 
@@ -61,10 +57,10 @@ class OccurrenceResolver
     {
         $from ??= Carbon::now($this->timezone());
 
-        return $this->firstUpcoming(
-            $this->representativeCandidates($entry, $from),
-            $from,
-        );
+        return $this->representativeCandidates($entry, $from)
+            ->filter(fn (Occurrence $o) => $o->start->gt($from))
+            ->sortBy(fn (Occurrence $o) => $o->start)
+            ->first();
     }
 
     public function findOccurrenceOnDate(Entry $entry, Carbon $date, bool $includeExcluded = false): ?Occurrence
@@ -215,7 +211,7 @@ class OccurrenceResolver
             if ($representativeAt) {
                 $occurrences = collect([$occurrence]);
 
-                if ($start->gte($representativeAt)) {
+                if (OccurrenceWindow::effectiveEnd($occurrence)->gte($representativeAt)) {
                     break;
                 }
             } else {

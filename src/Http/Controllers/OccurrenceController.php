@@ -6,6 +6,7 @@ namespace ElSchneider\StatamicCalendar\Http\Controllers;
 
 use Carbon\Carbon;
 use ElSchneider\StatamicCalendar\Facades\Occurrences;
+use ElSchneider\StatamicCalendar\Occurrences\Occurrence;
 use ElSchneider\StatamicCalendar\Occurrences\OccurrenceData;
 use ElSchneider\StatamicCalendar\Occurrences\OccurrenceResolver;
 use ElSchneider\StatamicCalendar\Occurrences\OccurrenceWindow;
@@ -55,7 +56,7 @@ class OccurrenceController
                 'occurrence_url' => $cachedOccurrence->url,
             ];
 
-            if ($redirect = $this->redirectExpiredOccurrence($entry, $cachedOccurrence->start, $cachedOccurrence->end, $cachedOccurrence->isAllDay, $cachedOccurrences)) {
+            if ($redirect = $this->redirectExpiredOccurrence($entry, $cachedOccurrence, $cachedOccurrences)) {
                 return $redirect;
             }
 
@@ -68,7 +69,7 @@ class OccurrenceController
             abort(404);
         }
 
-        if ($redirect = $this->redirectExpiredOccurrence($entry, $occurrence->start, $occurrence->end, $occurrence->isAllDay)) {
+        if ($redirect = $this->redirectExpiredOccurrence($entry, $occurrence)) {
             return $redirect;
         }
 
@@ -99,7 +100,7 @@ class OccurrenceController
         return $entry;
     }
 
-    private function redirectExpiredOccurrence(EntryContract $entry, Carbon $occurrenceStart, ?Carbon $occurrenceEnd = null, bool $isAllDay = false, ?Collection $cachedOccurrences = null)
+    private function redirectExpiredOccurrence(EntryContract $entry, Occurrence|OccurrenceData $occurrence, ?Collection $cachedOccurrences = null)
     {
         if (! config('statamic-calendar.url.redirect_expired', true)) {
             return null;
@@ -109,10 +110,8 @@ class OccurrenceController
             return null;
         }
 
-        $now = Carbon::now($occurrenceStart->getTimezone());
-        $expiresAt = $isAllDay
-            ? ($occurrenceEnd ?? $occurrenceStart)->copy()->endOfDay()
-            : ($occurrenceEnd ?? $occurrenceStart);
+        $now = Carbon::now($occurrence->start->getTimezone());
+        $expiresAt = OccurrenceWindow::effectiveEnd($occurrence);
 
         if ($expiresAt->gte($now)) {
             return null;
@@ -132,7 +131,7 @@ class OccurrenceController
     private function nextCachedOccurrenceUrl(Collection $cachedOccurrences, Carbon $from): ?string
     {
         return $cachedOccurrences
-            ->filter(fn (OccurrenceData $occurrence) => OccurrenceWindow::matches($occurrence, $from))
+            ->filter(fn (OccurrenceData $occurrence) => $occurrence->start->gt($from))
             ->sortBy(fn (OccurrenceData $occurrence) => $occurrence->start)
             ->first()?->url;
     }

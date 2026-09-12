@@ -30,17 +30,24 @@ class Calendar extends Tags
         protected OccurrenceResolver $resolver
     ) {}
 
+    /**
+     * Lists occurrences in a window.
+     *
+     * status accepts upcoming, ongoing, and past. When status is supplied, it
+     * supersedes the implicit from=now; pass from to combine it with a window.
+     */
     public function index(): mixed
     {
         $collection = (string) $this->params->get('collection', config('statamic-calendar.collection', 'events'));
-        $from = $this->params->has('from') ? Carbon::parse((string) $this->params->get('from')) : Carbon::now();
+        $statuses = $this->statuses();
+        // Status is a classification, not a window: it must not inherit the upcoming floor.
+        $from = $this->params->has('from') ? Carbon::parse((string) $this->params->get('from')) : ($statuses ? null : Carbon::now());
         $to = $this->params->has('to') ? Carbon::parse((string) $this->params->get('to')) : null;
         $limit = $this->params->int('limit');
         $sort = (string) $this->params->get('sort', 'asc');
         $paginate = $this->params->int('paginate');
         $pageName = (string) $this->params->get('page_name', 'page');
         $includeExcluded = $this->params->bool('include_excluded', false);
-        $statuses = $this->statuses();
         $now = $statuses ? OccurrenceWindow::now() : null;
 
         $tags = $this->params->get('tags');
@@ -54,15 +61,18 @@ class Calendar extends Tags
 
     /**
      * Usage: {{ calendar:for_organizer :organizer="id" limit="5" }}
+     *
+     * status accepts upcoming, ongoing, and past. When status is supplied, it
+     * supersedes the implicit from=now; pass from to combine it with a window.
      */
     public function forOrganizer(): mixed
     {
         $organizerId = $this->params->get('organizer') ?? $this->context->get('id');
         $limit = $this->params->int('limit', 5);
-        $from = $this->params->has('from') ? Carbon::parse((string) $this->params->get('from')) : Carbon::now();
+        $statuses = $this->statuses();
+        $from = $this->params->has('from') ? Carbon::parse((string) $this->params->get('from')) : ($statuses ? null : Carbon::now());
         $paginate = $this->params->int('paginate');
         $pageName = (string) $this->params->get('page_name', 'page');
-        $statuses = $this->statuses();
         $now = $statuses ? OccurrenceWindow::now() : null;
 
         $occurrences = Occurrences::forOrganizer((is_string($organizerId) || is_int($organizerId)) ? (string) $organizerId : null)
@@ -116,6 +126,9 @@ class Calendar extends Tags
      * Returns a month grid with weeks, days, and occurrences.
      *
      * Usage: {{ calendar:month param="month" week_starts_on="1" }}
+     *
+     * Occurrences are grouped under their start date; multi-day spans are not
+     * repeated on every day of the grid.
      */
     public function month(): mixed
     {
@@ -341,7 +354,7 @@ class Calendar extends Tags
         return $labels;
     }
 
-    private function indexFromCache(Carbon $from, ?Carbon $to, ?int $limit, $tags, string $sort = 'asc', int $paginate = 0, string $pageName = 'page', bool $includeExcluded = false, array $statuses = [], ?Carbon $now = null): mixed
+    private function indexFromCache(?Carbon $from, ?Carbon $to, ?int $limit, $tags, string $sort = 'asc', int $paginate = 0, string $pageName = 'page', bool $includeExcluded = false, array $statuses = [], ?Carbon $now = null): mixed
     {
         $occurrences = ($statuses
             ? Occurrences::status($statuses, $now, $includeExcluded)
@@ -375,14 +388,7 @@ class Calendar extends Tags
     /** @return array<string> */
     private function statuses(): array
     {
-        $statuses = $this->params->get('status');
-        $statuses = is_string($statuses) ? explode(',', $statuses) : $statuses;
-
-        return collect($statuses)
-            ->map(fn ($status) => is_string($status) ? trim($status) : '')
-            ->filter(fn ($status) => in_array($status, ['upcoming', 'ongoing', 'past'], true))
-            ->values()
-            ->all();
+        return OccurrenceWindow::parseStatuses($this->params->get('status'));
     }
 
     /**
@@ -425,7 +431,7 @@ class Calendar extends Tags
      * pass an explicit `to` to shrink the working set, or use the cached default
      * collection.
      */
-    private function indexFromResolver(string $collection, Carbon $from, ?Carbon $to, ?int $limit, $tags, string $sort = 'asc', int $paginate = 0, string $pageName = 'page', bool $includeExcluded = false, array $statuses = [], ?Carbon $now = null): mixed
+    private function indexFromResolver(string $collection, ?Carbon $from, ?Carbon $to, ?int $limit, $tags, string $sort = 'asc', int $paginate = 0, string $pageName = 'page', bool $includeExcluded = false, array $statuses = [], ?Carbon $now = null): mixed
     {
         $query = Entry::query()->where('collection', $collection);
 
@@ -452,7 +458,7 @@ class Calendar extends Tags
                 continue;
             }
 
-            $occurrences = $this->resolver->resolve($entry, $from, $to, $resolverLimit, $includeExcluded);
+            $occurrences = $this->resolver->resolve($entry, $from ?? Carbon::create(1, 1, 1, 0, 0, 0, OccurrenceWindow::now()->getTimezone()), $to, $resolverLimit, $includeExcluded);
             $allOccurrences = $allOccurrences->merge($statuses
                 ? $occurrences->filter(fn (Occurrence $o) => OccurrenceWindow::hasStatus($o, $statuses, $now))
                 : $occurrences);

@@ -37,6 +37,11 @@ beforeEach(function () {
     $mock->shouldReceive('all')->with(false)->andReturnUsing(fn () => collect([$visible]));
     $mock->shouldReceive('all')->with(true)->andReturnUsing(fn () => collect([$visible, $excluded]));
     $mock->shouldReceive('all')->withNoArgs()->andReturnUsing(fn () => collect([$visible]));
+    $mock->shouldReceive('status')->andReturnUsing(function (array $statuses, Carbon $now, bool $includeExcluded = false) use ($excluded) {
+        $occurrences = $includeExcluded ? $this->tagOccurrences->concat([$excluded]) : $this->tagOccurrences;
+
+        return $occurrences->filter(fn (OccurrenceData $occurrence) => ElSchneider\StatamicCalendar\Occurrences\OccurrenceWindow::hasStatus($occurrence, $statuses, $now))->values();
+    });
     $this->app->instance(OccurrenceCache::class, $mock);
 });
 
@@ -258,6 +263,35 @@ test('occurrence returns no items for missing or unpublished entries', function 
     EntryFacade::shouldReceive('find')->with('unpublished')->andReturn($entry);
 
     expect(calendarTag(context: ['id' => 'unpublished'], resolver: $resolver)->occurrence())->toBe([]);
+});
+
+test('status past is not constrained by the default upcoming window', function () {
+    $this->tagOccurrences = collect([
+        calendarTagOccurrence([
+            'title' => 'Past',
+            'start' => '2026-01-30T10:00:00+00:00',
+            'end' => '2026-01-30T11:00:00+00:00',
+        ]),
+        calendarTagOccurrence([
+            'title' => 'Older Past',
+            'start' => '2026-01-29T10:00:00+00:00',
+            'end' => '2026-01-29T11:00:00+00:00',
+        ]),
+    ]);
+
+    expect(collect(calendarTag(['status' => 'past', 'sort' => 'desc'])->index())->pluck('title')->all())
+        ->toBe(['Past', 'Older Past']);
+});
+
+test('status ongoing includes an occurrence in progress', function () {
+    $this->tagOccurrences = collect([calendarTagOccurrence([
+        'title' => 'Ongoing',
+        'start' => '2026-01-31T10:00:00+00:00',
+        'end' => '2026-02-01T12:00:00+00:00',
+    ])]);
+
+    expect(collect(calendarTag(['status' => 'ongoing'])->index())->pluck('title')->all())
+        ->toBe(['Ongoing']);
 });
 
 test('include_excluded surfaces excluded occurrences with metadata', function () {

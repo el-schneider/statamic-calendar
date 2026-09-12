@@ -11,19 +11,25 @@ use ElSchneider\StatamicCalendar\Occurrences\OccurrenceWindow;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
+use InvalidArgumentException;
 
 class ApiOccurrenceController
 {
     public function index(Request $request): JsonResponse
     {
-        $from = $request->has('from') ? Carbon::parse($request->query('from')) : Carbon::now();
+        try {
+            $statuses = OccurrenceWindow::parseStatuses($request->query('status'));
+        } catch (InvalidArgumentException $exception) {
+            return new JsonResponse(['message' => $exception->getMessage()], 422);
+        }
+
+        $from = $request->has('from') ? Carbon::parse($request->query('from')) : ($statuses ? null : Carbon::now());
         $to = $request->has('to') ? Carbon::parse($request->query('to')) : null;
         $limit = $request->integer('limit') ?: null;
         $sort = $request->query('sort', 'asc') === 'desc' ? 'desc' : 'asc';
         $tags = $request->query('tags');
         $organizer = $request->query('organizer');
         $includeExcluded = $request->boolean('include_excluded');
-        $statuses = array_filter(array_map('trim', explode(',', (string) $request->query('status'))), fn (string $status) => in_array($status, ['upcoming', 'ongoing', 'past'], true));
         $now = $statuses ? OccurrenceWindow::now() : null;
 
         $occurrences = ($statuses
