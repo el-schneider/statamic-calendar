@@ -6,7 +6,7 @@ use ElSchneider\StatamicCalendar\ServiceProvider;
 use Illuminate\Console\Scheduling\Schedule;
 
 test('does not schedule the occurrence cache rebuild when disabled', function () {
-    config()->set('statamic-calendar.cache.rebuild_schedule', false);
+    config()->set('statamic-calendar.cache.schedule_rebuild', false);
 
     $schedule = Mockery::mock(Schedule::class);
     $schedule->shouldNotReceive('command');

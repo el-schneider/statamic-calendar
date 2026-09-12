@@ -14,7 +14,6 @@ use ElSchneider\StatamicCalendar\Occurrences\OccurrenceCache;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Route;
-use InvalidArgumentException;
 use Statamic\Contracts\Entries\Entry as EntryContract;
 use Statamic\Events\CollectionSaved;
 use Statamic\Events\EntryDeleted;
@@ -87,27 +86,14 @@ class ServiceProvider extends AddonServiceProvider
     }
 
     /**
-     * Rebuild the rolling cache window even when no calendar entry changes.
+     * The cache holds occurrences up to days_ahead from the last rebuild, and
+     * only an entry save rebuilds it. A daily run keeps that window moving.
      */
     protected function schedule(Schedule $schedule): void
     {
-        $frequency = config('statamic-calendar.cache.rebuild_schedule', 'daily');
-
-        if ($frequency === false) {
-            return;
+        if (config('statamic-calendar.cache.schedule_rebuild', true)) {
+            $schedule->command('occurrences:rebuild')->daily();
         }
-
-        $frequencies = ['everyMinute', 'hourly', 'twiceDaily', 'daily', 'weekly'];
-
-        if (! is_string($frequency) || ! in_array($frequency, $frequencies, true)) {
-            throw new InvalidArgumentException(sprintf(
-                'Invalid statamic-calendar.cache.rebuild_schedule value "%s". Allowed values: %s, or false.',
-                is_scalar($frequency) ? (string) $frequency : get_debug_type($frequency),
-                implode(', ', $frequencies),
-            ));
-        }
-
-        $schedule->command('occurrences:rebuild')->{$frequency}()->withoutOverlapping();
     }
 
     protected function registerRoutes(): void
