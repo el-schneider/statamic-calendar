@@ -31,43 +31,55 @@ tabs:
                     width: 50
                     validate:
                       - required
-                - handle: start_time
-                  field:
-                    type: text
-                    display: 'Start Time'
-                    input_type: time
-                    width: 50
-                    placeholder: '09:00'
-                    validate:
-                      - 'required_if:{this}.is_all_day,false'
                 - handle: end_date
                   field:
                     type: date
                     display: 'End Date'
                     instructions: 'Leave blank for a single-day event. Required for overnight events.'
+                    instructions_position: below
                     time_enabled: false
                     width: 50
                     validate:
                       - 'after_or_equal:{this}.start_date'
-                - handle: end_time
-                  field:
-                    type: text
-                    display: 'End Time'
-                    instructions: 'Optional. Without an end date it must be after the start time.'
-                    input_type: time
-                    width: 50
-                    placeholder: '17:00'
                 - handle: is_all_day
                   field:
                     type: toggle
                     display: 'All Day Event'
                     default: false
-                    width: 50
+                    width: 25
                 - handle: is_recurring
                   field:
                     type: toggle
                     display: 'Recurring Event'
+                    width: 25
+                - handle: start_time
+                  field:
+                    type: text
+                    display: 'Start Time'
+                    input_type: time
+                    width: 25
+                    placeholder: '09:00'
+                    validate:
+                      - 'required_if:{this}.is_all_day,false'
+                    if:
+                      is_all_day: 'equals false'
+                - handle: end_time
+                  field:
+                    type: text
+                    display: 'End Time'
+                    instructions: 'Optional. Without an end date it must be after the start time.'
+                    instructions_position: below
+                    input_type: time
+                    width: 25
+                    placeholder: '17:00'
+                    if:
+                      is_all_day: 'equals false'
+                - handle: all_day_time_spacer
+                  field:
+                    type: spacer
                     width: 50
+                    if:
+                      is_all_day: 'equals true'
                 - handle: frequency
                   field:
                     type: select
@@ -86,10 +98,42 @@ tabs:
                     type: integer
                     display: Interval
                     instructions: 'Repeat every X periods'
+                    instructions_position: below
                     default: 1
                     width: 50
                     if:
                       is_recurring: 'equals true'
+                - handle: recurrence_end
+                  field:
+                    type: button_group
+                    display: 'Recurrence Ends'
+                    width: 50
+                    options:
+                      never: Never
+                      count: 'After X occurrences'
+                      until: 'On date'
+                    default: never
+                    if:
+                      is_recurring: 'equals true'
+                - handle: count
+                  field:
+                    type: integer
+                    display: 'Number of Occurrences'
+                    width: 50
+                    if:
+                      is_recurring: 'equals true'
+                      recurrence_end: 'equals count'
+                - handle: until
+                  field:
+                    type: date
+                    display: 'Repeat Until'
+                    time_enabled: false
+                    width: 50
+                    validate:
+                      - 'after_or_equal:{this}.start_date'
+                    if:
+                      is_recurring: 'equals true'
+                      recurrence_end: 'equals until'
                 - handle: weekdays
                   field:
                     type: checkboxes
@@ -110,6 +154,7 @@ tabs:
                   field:
                     type: button_group
                     display: 'Repeat by'
+                    width: 50
                     options:
                       day_of_month: 'Day of month'
                       weekday_position: 'Weekday position'
@@ -137,7 +182,7 @@ tabs:
                       '4': Fourth
                       '-1': Last
                     default: '1'
-                    width: 50
+                    width: 25
                     if:
                       is_recurring: 'equals true'
                       frequency: 'equals MONTHLY'
@@ -154,41 +199,11 @@ tabs:
                       FR: Friday
                       SA: Saturday
                       SU: Sunday
-                    width: 50
+                    width: 25
                     if:
                       is_recurring: 'equals true'
                       frequency: 'equals MONTHLY'
                       monthly_type: 'equals weekday_position'
-                - handle: recurrence_end
-                  field:
-                    type: button_group
-                    display: 'Recurrence Ends'
-                    options:
-                      never: Never
-                      count: 'After X occurrences'
-                      until: 'On date'
-                    default: never
-                    if:
-                      is_recurring: 'equals true'
-                - handle: count
-                  field:
-                    type: integer
-                    display: 'Number of Occurrences'
-                    width: 50
-                    if:
-                      is_recurring: 'equals true'
-                      recurrence_end: 'equals count'
-                - handle: until
-                  field:
-                    type: date
-                    display: 'Repeat Until'
-                    time_enabled: false
-                    width: 50
-                    validate:
-                      - 'after_or_equal:{this}.start_date'
-                    if:
-                      is_recurring: 'equals true'
-                      recurrence_end: 'equals until'
                 - handle: exclusions
                   field:
                     type: grid
