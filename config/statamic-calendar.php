@@ -123,6 +123,10 @@ return [
     | Outlook) can subscribe to, plus per-occurrence download links for
     | "Add to calendar" buttons.
     |
+    | Both endpoints are public: entries under a protection scheme are left out
+    | of the feed and cannot be downloaded. Exports for restricted entries need
+    | a route of your own that enforces access before generating the file.
+    |
     */
 
     'ics' => [
