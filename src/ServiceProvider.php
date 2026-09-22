@@ -7,6 +7,10 @@ namespace ElSchneider\StatamicCalendar;
 use ElSchneider\StatamicCalendar\Console\Commands\RebuildOccurrenceCacheCommand;
 use ElSchneider\StatamicCalendar\Entries\CalendarEloquentEntry;
 use ElSchneider\StatamicCalendar\Entries\CalendarEntry;
+use ElSchneider\StatamicCalendar\GraphQL\Queries\CalendarOccurrencesQuery;
+use ElSchneider\StatamicCalendar\GraphQL\Types\CalendarOccurrenceSortType;
+use ElSchneider\StatamicCalendar\GraphQL\Types\CalendarOccurrenceStatusType;
+use ElSchneider\StatamicCalendar\GraphQL\Types\CalendarOccurrenceType;
 use ElSchneider\StatamicCalendar\Http\Controllers\ApiOccurrenceController;
 use ElSchneider\StatamicCalendar\Http\Controllers\IcsController;
 use ElSchneider\StatamicCalendar\Listeners\RebuildOccurrenceCacheOnEntryChange;
@@ -19,6 +23,7 @@ use Statamic\Events\CollectionSaved;
 use Statamic\Events\EntryDeleted;
 use Statamic\Events\EntrySaved;
 use Statamic\Facades\Collection;
+use Statamic\Facades\GraphQL;
 use Statamic\Providers\AddonServiceProvider;
 
 class ServiceProvider extends AddonServiceProvider
@@ -71,6 +76,7 @@ class ServiceProvider extends AddonServiceProvider
 
         $this->registerRoutes();
         $this->registerApiRoutes();
+        $this->registerGraphql();
 
         $this->publishes([
             __DIR__.'/../config/statamic-calendar.php' => config_path('statamic-calendar.php'),
@@ -105,6 +111,18 @@ class ServiceProvider extends AddonServiceProvider
         }
 
         $this->registerIcsRoutes();
+    }
+
+    protected function registerGraphql(): void
+    {
+        if (! config('statamic-calendar.graphql.enabled', false)) {
+            return;
+        }
+
+        GraphQL::addType(CalendarOccurrenceType::class);
+        GraphQL::addType(CalendarOccurrenceStatusType::class);
+        GraphQL::addType(CalendarOccurrenceSortType::class);
+        GraphQL::addQuery(CalendarOccurrencesQuery::class);
     }
 
     protected function registerApiRoutes(): void

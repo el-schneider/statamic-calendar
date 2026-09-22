@@ -21,6 +21,10 @@ abstract class TestCase extends AddonTestCase
     {
         parent::getEnvironmentSetUp($app);
 
+        $app['config']->set('statamic.editions.pro', true);
         $app['config']->set('statamic-calendar.api.enabled', true);
+        $app['config']->set('statamic.graphql.enabled', true);
+        $app['config']->set('graphql.security.disable_introspection', false);
+        $app['config']->set('statamic-calendar.graphql.enabled', true);
     }
 }

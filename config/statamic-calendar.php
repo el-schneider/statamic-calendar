@@ -133,6 +133,24 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | GraphQL
+    |--------------------------------------------------------------------------
+    |
+    | Expose cached calendar occurrence fields through Statamic's native GraphQL
+    | endpoint. This opt-in is independent from REST API and collection resource
+    | permissions. Native GraphQL endpoint authorization still applies. Results
+    | default to 15 per page; graphql.max_per_page caps the requested page size.
+    | Requires Statamic Pro and STATAMIC_GRAPHQL_ENABLED=true.
+    |
+    */
+
+    'graphql' => [
+        'enabled' => env('STATAMIC_CALENDAR_GRAPHQL_ENABLED', false),
+        'max_per_page' => 100,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | REST API
     |--------------------------------------------------------------------------
     |
