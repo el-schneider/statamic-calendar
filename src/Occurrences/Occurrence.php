@@ -54,7 +54,7 @@ class Occurrence
             return '';
         }
 
-        $strategy = (string) $this->cfg('statamic-calendar.url.strategy', 'date_segments');
+        $strategy = (string) $this->cfg('statamic-calendar.url.strategy', 'query_string');
 
         if ($strategy === 'query_string') {
             $param = (string) $this->cfg('statamic-calendar.url.query_string.param', 'date');

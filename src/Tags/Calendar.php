@@ -197,7 +197,7 @@ class Calendar extends Tags
 
         $occurrence = null;
 
-        if (config('statamic-calendar.url.strategy', 'date_segments') === 'query_string') {
+        if (config('statamic-calendar.url.strategy', 'query_string') === 'query_string') {
             $param = (string) config('statamic-calendar.url.query_string.param', 'date');
             $date = request()->query($param);
             $format = (string) config('statamic-calendar.url.query_string.format', 'Y-m-d');
