@@ -109,6 +109,13 @@ return [
             'format' => 'Y-m-d',
         ],
 
+        /*
+        | Site and slug identify an entry, so saving an entry whose slug is taken
+        | in its site fails on the slug field. Multi-site installs get one route
+        | per site path (/de/{prefix}/...). The routes are built from the sites
+        | config: after changing site URLs, clear or re-cache routes and run
+        | occurrences:rebuild.
+        */
         'date_segments' => [
             'prefix' => 'calendar',
         ],
@@ -172,6 +179,8 @@ return [
     */
 
     'cache' => [
+        // Base key. The addon appends a payload format version (e.g. ".v2"), so
+        // upgrades that change cached data rebuild instead of reading stale data.
         'key' => 'statamic_calendar.occurrences',
         'days_ahead' => 365,
 

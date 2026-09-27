@@ -6,6 +6,9 @@ namespace ElSchneider\StatamicCalendar\Occurrences;
 
 use Carbon\Carbon;
 use Statamic\Entries\Entry;
+use Statamic\Facades\URL;
+use Statamic\Sites\Site;
+use Statamic\Support\Str;
 use Throwable;
 
 class Occurrence
@@ -32,6 +35,17 @@ class Occurrence
         public readonly ?Carbon $replacesDate = null,
     ) {}
 
+    /**
+     * Relative occurrence URLs already contain the site's path, so only the
+     * site's scheme and host are prepended.
+     */
+    public static function absolute(Site $site, string $url): string
+    {
+        $siteUrl = $site->absoluteUrl();
+
+        return URL::tidy(Str::removeRight($siteUrl, URL::makeRelative($siteUrl)).'/'.ltrim($url, '/'));
+    }
+
     public function url(?string $entryUrl = null): string
     {
         // Excluded occurrences have no meaningful destination — they represent
@@ -40,7 +54,7 @@ class Occurrence
             return '';
         }
 
-        $strategy = (string) $this->cfg('statamic-calendar.url.strategy', 'date_segments');
+        $strategy = (string) $this->cfg('statamic-calendar.url.strategy', 'query_string');
 
         if ($strategy === 'query_string') {
             $param = (string) $this->cfg('statamic-calendar.url.query_string.param', 'date');
@@ -59,14 +73,16 @@ class Occurrence
 
         $prefix = trim((string) $this->cfg('statamic-calendar.url.date_segments.prefix', 'calendar'), '/');
 
-        return sprintf(
-            '/%s/%s/%s/%s/%s',
+        // Built like Statamic's own entry URLs, so subdirectory sites get their path.
+        return URL::makeRelative(sprintf(
+            '%s/%s/%s/%s/%s/%s',
+            rtrim($this->entry->site()->absoluteUrl(), '/'),
             $prefix,
             $this->start->format('Y'),
             $this->start->format('m'),
             $this->start->format('d'),
             $this->entry->slug()
-        );
+        ));
     }
 
     private function cfg(string $key, mixed $default): mixed

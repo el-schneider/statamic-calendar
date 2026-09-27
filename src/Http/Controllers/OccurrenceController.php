@@ -14,6 +14,7 @@ use Illuminate\Support\Collection;
 use Statamic\Contracts\Entries\Entry as EntryContract;
 use Statamic\CP\LivePreview;
 use Statamic\Facades\Entry;
+use Statamic\Facades\Site;
 use Statamic\View\View;
 
 class OccurrenceController
@@ -30,6 +31,7 @@ class OccurrenceController
         $entry = $previewEntry ?? Entry::query()
             ->where('collection', $collection)
             ->where('slug', $slug)
+            ->where('site', Site::current()->handle())
             ->first();
 
         if (! $entry || (! $previewEntry && ! $entry->published())) {
@@ -157,6 +159,6 @@ class OccurrenceController
             return $url;
         }
 
-        return rtrim($entry->site()->absoluteUrl(), '/').'/'.ltrim($url, '/');
+        return Occurrence::absolute($entry->site(), $url);
     }
 }

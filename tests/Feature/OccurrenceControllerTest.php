@@ -235,6 +235,7 @@ test('occurrence route aborts for unpublished entries', function () {
     $builder = Mockery::mock();
     $builder->shouldReceive('where')->with('collection', 'events')->andReturnSelf();
     $builder->shouldReceive('where')->with('slug', 'draft-event')->andReturnSelf();
+    $builder->shouldReceive('where')->with('site', 'default')->andReturnSelf();
     $builder->shouldReceive('first')->andReturn($entry);
     Entry::shouldReceive('query')->andReturn($builder);
 

@@ -44,7 +44,7 @@ trait HasCalendarUrls
             return null;
         }
 
-        if (config('statamic-calendar.url.strategy', 'date_segments') === 'query_string') {
+        if (config('statamic-calendar.url.strategy', 'query_string') === 'query_string') {
             $entryUrl = $absolute ? parent::absoluteUrl() : parent::url();
 
             return $entryUrl ? $occurrence->url($entryUrl) : null;
@@ -56,7 +56,7 @@ trait HasCalendarUrls
             return $url;
         }
 
-        return rtrim($this->site()->absoluteUrl(), '/').'/'.ltrim($url, '/');
+        return Occurrence::absolute($this->site(), $url);
     }
 
     private function representativeOccurrence(): ?Occurrence

@@ -91,7 +91,7 @@ For SEO-friendly date-based URLs like `/calendar/2025/03/15/my-event`. Enable in
 ],
 ```
 
-The addon registers a route at `/{prefix}/{year}/{month}/{day}/{slug}`.
+The addon registers a route at `/{prefix}/{year}/{month}/{day}/{slug}`. Slug uniqueness and multi-site behaviour are documented at `url.date_segments` in the config file.
 
 ## Control Panel URLs and Live Preview
 
@@ -457,7 +457,7 @@ Key options in `config/statamic-calendar.php`:
 | `ics.enabled`              | Enable .ics feed routes           | `true`                          |
 | `ics.feed_url`             | Feed URL path                     | `/calendar.ics`                 |
 | `ics.calendar_name`        | Calendar name in .ics output      | `APP_NAME`                      |
-| `cache.key`                | Cache store key                   | `statamic_calendar.occurrences` |
+| `cache.key`                | Base cache key (versioned suffix) | `statamic_calendar.occurrences` |
 | `cache.days_ahead`         | Recurrence expansion window       | `365`                           |
 | `cache.schedule_rebuild`   | Rebuild daily via the scheduler   | `true`                          |
 
