@@ -195,6 +195,7 @@ function occurrenceTagEntry(bool $published = true): Entry
     $entry->shouldReceive('url')->andReturn('/events/event');
     $entry->shouldReceive('urlWithoutRedirect')->andReturn('/events/event');
     $entry->shouldReceive('slug')->andReturn('event');
+    $entry->shouldReceive('site')->andReturn(Statamic\Facades\Site::default());
     $entry->shouldReceive('toAugmentedArray')->andReturn(['id' => 'entry-id', 'title' => 'Event']);
 
     return $entry;

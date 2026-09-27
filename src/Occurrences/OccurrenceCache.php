@@ -289,9 +289,13 @@ class OccurrenceCache
         return (string) config('statamic-calendar.collection', 'events');
     }
 
+    /**
+     * The suffix changes whenever cached payloads change shape or meaning (URLs
+     * gained the site path in v2), so upgrades rebuild instead of serving stale data.
+     */
     private function cacheKey(): string
     {
-        return (string) config('statamic-calendar.cache.key', 'statamic_calendar.occurrences');
+        return config('statamic-calendar.cache.key', 'statamic_calendar.occurrences').'.v2';
     }
 
     private function daysAhead(): int

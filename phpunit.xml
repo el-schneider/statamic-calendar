@@ -14,6 +14,9 @@
         <testsuite name="Boot">
             <directory>tests/Boot</directory>
         </testsuite>
+        <testsuite name="Multisite">
+            <directory>tests/Multisite</directory>
+        </testsuite>
     </testsuites>
     <source>
         <include>

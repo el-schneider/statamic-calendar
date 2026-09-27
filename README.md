@@ -91,7 +91,9 @@ For SEO-friendly date-based URLs like `/calendar/2025/03/15/my-event`. Enable in
 ],
 ```
 
-The addon registers a route at `/{prefix}/{year}/{month}/{day}/{slug}`.
+The addon registers a route at `/{prefix}/{year}/{month}/{day}/{slug}`, and one per site path in multi-site installs (`/de/{prefix}/…`). Site and slug identify the entry, so saving an entry whose slug is already taken in its site fails with a validation error on the slug field.
+
+Routes are built from the configured sites. After changing site URLs, run `php artisan route:clear` (or re-cache routes) and `php artisan occurrences:rebuild`.
 
 ## Control Panel URLs and Live Preview
 

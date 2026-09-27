@@ -56,7 +56,7 @@ trait HasCalendarUrls
             return $url;
         }
 
-        return rtrim($this->site()->absoluteUrl(), '/').'/'.ltrim($url, '/');
+        return Occurrence::absolute($this->site(), $url);
     }
 
     private function representativeOccurrence(): ?Occurrence

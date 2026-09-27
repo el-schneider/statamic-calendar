@@ -15,7 +15,7 @@ afterEach(fn () => Carbon::setTestNow());
 
 test('upcoming includes occurrences in progress in the configured timezone', function () {
     Carbon::setTestNow('2026-06-12 12:00:00 Europe/Berlin');
-    Cache::forever('statamic_calendar.occurrences', [
+    Cache::forever('statamic_calendar.occurrences.v2', [
         cachedOccurrence('ongoing', '2026-06-12T10:00:00+02:00', '2026-06-12T13:00:00+02:00'),
         cachedOccurrence('future', '2026-06-12T14:00:00+02:00'),
         cachedOccurrence('past', '2026-06-12T08:00:00+02:00', '2026-06-12T09:00:00+02:00'),
@@ -23,6 +23,14 @@ test('upcoming includes occurrences in progress in the configured timezone', fun
 
     expect(app(OccurrenceCache::class)->upcoming()->pluck('title')->all())
         ->toBe(['ongoing', 'future']);
+});
+
+test('caches written in an older payload format are not served', function () {
+    Cache::forever('statamic_calendar.occurrences', [
+        cachedOccurrence('stale', '2026-06-12T14:00:00+02:00'),
+    ]);
+
+    expect(app(OccurrenceCache::class)->all())->toBeEmpty();
 });
 
 function cachedOccurrence(string $title, string $start, ?string $end = null): array
