@@ -12,7 +12,8 @@ use Statamic\Facades\User;
 beforeEach(function () {
     Carbon::setTestNow('2026-07-11 12:00:00');
 
-    Collection::make('events')->sites(['default', 'de', 'fr'])->template('statamic-calendar/show')->save();
+    view()->addLocation(__DIR__.'/../__fixtures__/views');
+    Collection::make('events')->sites(['default', 'de', 'fr'])->template('occurrence')->save();
 
     // The same slug in every site, so only the site tells the entries apart.
     $this->events = collect(['default' => 'Meetup', 'de' => 'Treffen', 'fr' => 'Rencontre'])

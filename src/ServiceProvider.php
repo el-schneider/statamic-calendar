@@ -58,7 +58,6 @@ class ServiceProvider extends AddonServiceProvider
             $this->configureCollectionEntryClass($event->collection);
         });
 
-        $this->app['view']->addLocation(__DIR__.'/../resources/views');
         $this->app['view']->composer('statamic::entries.edit', function ($view): void {
             $entry = $view->getData()['entry'] ?? null;
 
@@ -69,16 +68,12 @@ class ServiceProvider extends AddonServiceProvider
             }
         });
 
-        $this->registerRoutes();
+        $this->registerIcsRoutes();
         $this->registerApiRoutes();
 
         $this->publishes([
             __DIR__.'/../config/statamic-calendar.php' => config_path('statamic-calendar.php'),
         ], 'statamic-calendar');
-
-        $this->publishes([
-            __DIR__.'/../resources/views/statamic-calendar' => resource_path('views/statamic-calendar'),
-        ], 'statamic-calendar-views');
 
         $this->publishes([
             __DIR__.'/../resources/examples' => resource_path('vendor/statamic-calendar/examples'),
@@ -94,17 +89,6 @@ class ServiceProvider extends AddonServiceProvider
         if (config('statamic-calendar.cache.schedule_rebuild', true)) {
             $schedule->command('occurrences:rebuild')->daily();
         }
-    }
-
-    protected function registerRoutes(): void
-    {
-        $index = config('statamic-calendar.routes.index');
-
-        if ($index) {
-            Route::statamic($index, 'statamic-calendar/index');
-        }
-
-        $this->registerIcsRoutes();
     }
 
     protected function registerApiRoutes(): void
