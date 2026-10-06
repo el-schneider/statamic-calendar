@@ -11,10 +11,12 @@ use ElSchneider\StatamicCalendar\Occurrences\OccurrenceData;
 use ElSchneider\StatamicCalendar\Occurrences\OccurrenceResolver;
 use ElSchneider\StatamicCalendar\Occurrences\OccurrenceWindow;
 use Illuminate\Support\Facades\URL;
+use InvalidArgumentException;
+use Statamic\Contracts\Query\Builder;
 use Statamic\Contracts\Taxonomies\Term;
 use Statamic\Extensions\Pagination\LengthAwarePaginator;
 use Statamic\Facades\Entry;
-use Statamic\Stache\Query\TermQueryBuilder;
+use Statamic\Fields\Value;
 use Statamic\Tags\Concerns\OutputsItems;
 use Statamic\Tags\Tags;
 
@@ -388,12 +390,21 @@ class Calendar extends Tags
      */
     private function normalizeTagSlugs($tags): array
     {
-        if ($tags instanceof TermQueryBuilder) {
+        // A terms field augments to a query builder, or to a single Term with max_items: 1.
+        if ($tags instanceof Builder) {
             $tags = $tags->get();
+        }
+
+        if ($tags instanceof Term) {
+            $tags = [$tags];
         }
 
         if (is_string($tags)) {
             $tags = preg_split('/[|,]/', $tags) ?: [];
+        }
+
+        if (! is_iterable($tags)) {
+            throw new InvalidArgumentException('Calendar tags must be slugs or taxonomy terms, got '.get_debug_type($tags).'.');
         }
 
         return collect($tags)
@@ -403,12 +414,21 @@ class Calendar extends Tags
                 }
 
                 if (is_array($tag)) {
-                    return $tag['slug'] ?? null;
+                    $tag = $tag['slug'] ?? null;
                 }
 
-                return is_string($tag) ? $tag : null;
+                // Augmented term arrays wrap their slug in a Value.
+                if ($tag instanceof Value) {
+                    $tag = $tag->value();
+                }
+
+                if (is_string($tag)) {
+                    return $tag;
+                }
+
+                throw new InvalidArgumentException('Calendar tags must be slugs or taxonomy terms, got '.get_debug_type($tag).'.');
             })
-            ->filter()
+            ->reject(fn (string $slug) => $slug === '')
             ->values()
             ->all();
     }
@@ -484,7 +504,7 @@ class Calendar extends Tags
     {
         $entryId = $this->params->get('entry') ?? $this->context->get('id');
 
-        if ($entryId instanceof \Statamic\Fields\Value) {
+        if ($entryId instanceof Value) {
             $entryId = $entryId->value();
         }
 
@@ -499,7 +519,7 @@ class Calendar extends Tags
             return $contextStart;
         }
 
-        if ($contextStart instanceof \Statamic\Fields\Value) {
+        if ($contextStart instanceof Value) {
             $value = $contextStart->value();
 
             return $value instanceof Carbon ? $value : Carbon::parse((string) $value);

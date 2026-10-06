@@ -10,8 +10,13 @@ use ElSchneider\StatamicCalendar\Tags\Calendar;
 use Illuminate\Support\Facades\File;
 use Statamic\Contracts\View\Antlers\Parser;
 use Statamic\Entries\Entry;
+use Statamic\Facades\Antlers;
 use Statamic\Facades\Collection;
 use Statamic\Facades\Entry as EntryFacade;
+use Statamic\Facades\Taxonomy;
+use Statamic\Facades\Term;
+use Statamic\Fields\Field;
+use Statamic\Fields\Value;
 
 beforeEach(function () {
     Carbon::setTestNow('2026-02-01 00:00:00');
@@ -36,9 +41,9 @@ beforeEach(function () {
     // boundary so tests can verify the param is actually propagated. Build
     // fresh collections each call so the mocked returns can't alias.
     $mock->shouldReceive('rebuild')->zeroOrMoreTimes();
-    $mock->shouldReceive('all')->with(false)->andReturnUsing(fn () => collect([$visible]));
+    $mock->shouldReceive('all')->with(false)->andReturnUsing(fn () => $this->tagOccurrences);
     $mock->shouldReceive('all')->with(true)->andReturnUsing(fn () => collect([$visible, $excluded]));
-    $mock->shouldReceive('all')->withNoArgs()->andReturnUsing(fn () => collect([$visible]));
+    $mock->shouldReceive('all')->withNoArgs()->andReturnUsing(fn () => $this->tagOccurrences);
     $mock->shouldReceive('status')->andReturnUsing(function (array $statuses, Carbon $now, bool $includeExcluded = false) use ($excluded) {
         $occurrences = $includeExcluded ? $this->tagOccurrences->concat([$excluded]) : $this->tagOccurrences;
 
@@ -53,6 +58,7 @@ afterEach(function () {
     request()->query->replace([]);
     File::delete(__DIR__.'/../__fixtures__/content/collections/workshops.yaml');
     File::deleteDirectory(__DIR__.'/../__fixtures__/content/collections/workshops');
+    File::deleteDirectory(__DIR__.'/../__fixtures__/content/taxonomies');
 });
 
 function calendarTag(array $params = [], array $context = [], ?OccurrenceResolver $resolver = null): Calendar
@@ -353,3 +359,56 @@ test('include_excluded surfaces excluded occurrences with metadata', function ()
     expect($excluded['replacement_date']?->format('Y-m-d'))->toBe('2026-02-19');
     expect($excluded['url'])->toBe('');
 });
+
+function boundTermsValue(string $taxonomy, array $slugs, array $config = []): Value
+{
+    $field = new Field('selected_tags', ['type' => 'terms', 'taxonomies' => [$taxonomy], ...$config]);
+
+    return new Value($slugs, 'selected_tags', $field->fieldtype());
+}
+
+function seedTerms(string $taxonomy, array $slugs): void
+{
+    Taxonomy::make($taxonomy)->save();
+
+    foreach ($slugs as $slug) {
+        Term::make()->taxonomy($taxonomy)->slug($slug)->data(['title' => ucfirst($slug)])->save();
+    }
+}
+
+test('tags filter accepts a bound terms field', function (array $config, array $selected, string $expected) {
+    seedTerms('event_tags', ['workshop', 'community']);
+    $this->tagOccurrences = collect([
+        calendarTagOccurrence(['id' => 'a', 'title' => 'Workshop', 'tags' => ['workshop']]),
+        calendarTagOccurrence(['id' => 'b', 'title' => 'Community', 'tags' => ['community']]),
+        calendarTagOccurrence(['id' => 'c', 'title' => 'Untagged']),
+    ]);
+
+    // Trusted: untrusted Antlers input does not evaluate tags.
+    $output = (string) Antlers::parse(
+        '{{ calendar from="2026-02-01" :tags="selected_tags" }}{{ title }}|{{ /calendar }}',
+        ['selected_tags' => boundTermsValue('event_tags', $selected, $config)],
+        trusted: true,
+    );
+
+    expect($output)->toBe($expected);
+})->with([
+    'multiple terms' => [[], ['workshop', 'community'], 'Workshop|Community|'],
+    'single term' => [['max_items' => 1], ['workshop'], 'Workshop|'],
+]);
+
+test('tags filter accepts augmented term arrays and ignores empty slugs', function () {
+    $this->tagOccurrences = collect([
+        calendarTagOccurrence(['id' => 'a', 'title' => 'Workshop', 'tags' => ['workshop']]),
+        calendarTagOccurrence(['id' => 'c', 'title' => 'Untagged']),
+    ]);
+
+    $tags = [['slug' => new Value('workshop')], ''];
+
+    expect(collect(calendarTag(['from' => '2026-02-01', 'tags' => $tags])->index())->pluck('title')->all())
+        ->toBe(['Workshop']);
+});
+
+test('tags filter rejects input it cannot read as slugs', function () {
+    calendarTag(['tags' => [42]])->index();
+})->throws(InvalidArgumentException::class, 'int');
