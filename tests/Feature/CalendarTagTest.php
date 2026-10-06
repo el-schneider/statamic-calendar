@@ -10,6 +10,7 @@ use ElSchneider\StatamicCalendar\Tags\Calendar;
 use Illuminate\Support\Facades\File;
 use Statamic\Contracts\View\Antlers\Parser;
 use Statamic\Entries\Entry;
+use Statamic\Facades\Antlers;
 use Statamic\Facades\Collection;
 use Statamic\Facades\Entry as EntryFacade;
 use Statamic\Facades\Taxonomy;
@@ -375,7 +376,7 @@ function seedTerms(string $taxonomy, array $slugs): void
     }
 }
 
-test('tags filter accepts a bound terms field', function (array $config, array $selected, array $expected) {
+test('tags filter accepts a bound terms field', function (array $config, array $selected, string $expected) {
     seedTerms('event_tags', ['workshop', 'community']);
     $this->tagOccurrences = collect([
         calendarTagOccurrence(['id' => 'a', 'title' => 'Workshop', 'tags' => ['workshop']]),
@@ -383,14 +384,17 @@ test('tags filter accepts a bound terms field', function (array $config, array $
         calendarTagOccurrence(['id' => 'c', 'title' => 'Untagged']),
     ]);
 
-    // Antlers passes the augmented field value, not the Value wrapper, to :tags.
-    $tags = boundTermsValue('event_tags', $selected, $config)->value();
+    // Trusted: untrusted Antlers input does not evaluate tags.
+    $output = (string) Antlers::parse(
+        '{{ calendar from="2026-02-01" :tags="selected_tags" }}{{ title }}|{{ /calendar }}',
+        ['selected_tags' => boundTermsValue('event_tags', $selected, $config)],
+        trusted: true,
+    );
 
-    expect(collect(calendarTag(['from' => '2026-02-01', 'tags' => $tags])->index())->pluck('title')->all())
-        ->toBe($expected);
+    expect($output)->toBe($expected);
 })->with([
-    'multiple terms' => [[], ['workshop', 'community'], ['Workshop', 'Community']],
-    'single term' => [['max_items' => 1], ['workshop'], ['Workshop']],
+    'multiple terms' => [[], ['workshop', 'community'], 'Workshop|Community|'],
+    'single term' => [['max_items' => 1], ['workshop'], 'Workshop|'],
 ]);
 
 test('tags filter accepts augmented term arrays and ignores empty slugs', function () {
