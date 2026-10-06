@@ -44,7 +44,7 @@ The addon expects a `dates` grid field on your event entries. You can publish an
 php artisan vendor:publish --tag=statamic-calendar-examples
 ```
 
-This publishes to `resources/vendor/statamic-calendar/examples/`. Copy the blueprint to your collection:
+This publishes to `resources/vendor/statamic-calendar/examples/`, including example `events/index` and `events/show` templates. Copy the blueprint to your collection:
 
 ```bash
 cp resources/vendor/statamic-calendar/examples/blueprints/collections/events/event.yaml \

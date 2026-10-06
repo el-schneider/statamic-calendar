@@ -39,7 +39,7 @@ function occurrenceControllerEntry(string $id, array $dates): Statamic\Contracts
         ->locale('default')
         ->slug($id)
         ->published(true)
-        ->template('statamic-calendar/show')
+        ->template('events/show')
         ->data([
             'title' => str($id)->replace('-', ' ')->title()->toString(),
             'dates' => $dates,
@@ -171,7 +171,7 @@ test('occurrence route renders tokenized unsaved preview values', function () {
         ->locale('default')
         ->slug('draft-event')
         ->published(false)
-        ->template('statamic-calendar/show')
+        ->template('events/show')
         ->data([
             'title' => 'Saved title',
             'dates' => [['start_date' => '2026-08-03', 'start_time' => '10:00']],
