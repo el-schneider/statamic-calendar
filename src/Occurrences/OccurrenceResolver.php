@@ -69,6 +69,13 @@ class OccurrenceResolver
         $startOfDay = $date->copy()->setTimezone($tz)->startOfDay();
         $endOfDay = $date->copy()->setTimezone($tz)->endOfDay();
 
+        // Open-ended rules (recurrence_end: never) would otherwise resolve any
+        // future date, so a stray URL can mint pages decades out.
+        $horizon = config('statamic-calendar.url.max_days_ahead');
+        if ($horizon !== null && $startOfDay->gt(Carbon::now($tz)->addDays((int) $horizon))) {
+            return null;
+        }
+
         $occurrences = $this->resolve(
             entry: $entry,
             from: $startOfDay,

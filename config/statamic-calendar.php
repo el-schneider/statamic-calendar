@@ -87,6 +87,13 @@ return [
         */
         'redirect_expired' => true,
 
+        /*
+        | Dates further ahead than this many days return no occurrence (404 on
+        | the occurrence route). Open-ended rules would otherwise resolve any
+        | future date. Null disables the limit.
+        */
+        'max_days_ahead' => 730,
+
         'query_string' => [
             'param' => 'date',
             'format' => 'Y-m-d',
