@@ -40,11 +40,6 @@ class OccurrenceController
 
         $date = Carbon::create($year, $month, $day);
 
-        // Checked before the cache lookup: the cache holds days_ahead, which may exceed the URL horizon.
-        if (! $this->resolver->withinUrlHorizon($date)) {
-            abort(404);
-        }
-
         $cachedOccurrences = $previewEntry
             ? null
             : Occurrences::forEntry($entry->id());
@@ -124,10 +119,9 @@ class OccurrenceController
             return null;
         }
 
-        // A redirect target outside the horizon would 404, so it is not offered.
         $nextUrl = $cachedOccurrences
             ? $this->nextCachedOccurrenceUrl($cachedOccurrences, $now)
-            : $this->nextUpcomingUrl($entry);
+            : $this->resolver->nextUpcoming($entry)?->url();
 
         if (! $nextUrl) {
             return null;
@@ -136,18 +130,10 @@ class OccurrenceController
         return redirect()->to($this->absoluteOccurrenceUrl($entry, $nextUrl), 301);
     }
 
-    private function nextUpcomingUrl(EntryContract $entry): ?string
-    {
-        $next = $this->resolver->nextUpcoming($entry);
-
-        return $next && $this->resolver->withinUrlHorizon($next->start) ? $next->url() : null;
-    }
-
     private function nextCachedOccurrenceUrl(Collection $cachedOccurrences, Carbon $from): ?string
     {
         return $cachedOccurrences
             ->filter(fn (OccurrenceData $occurrence) => $occurrence->start->gt($from))
-            ->filter(fn (OccurrenceData $occurrence) => $this->resolver->withinUrlHorizon($occurrence->start))
             ->sortBy(fn (OccurrenceData $occurrence) => $occurrence->start)
             ->first()?->url;
     }

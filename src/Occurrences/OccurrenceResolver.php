@@ -63,33 +63,11 @@ class OccurrenceResolver
             ->first();
     }
 
-    /**
-     * Whether a day may be served as an occurrence URL. Open-ended rules would
-     * otherwise resolve any future date, so the route is capped at
-     * url.max_days_ahead. The fallback matches the shipped default because
-     * Laravel's shallow config merge leaves the key absent in published configs.
-     */
-    public function withinUrlHorizon(Carbon $date): bool
-    {
-        $tz = $this->timezone();
-        $horizon = config('statamic-calendar.url.max_days_ahead', 730);
-
-        if ($horizon === null) {
-            return true;
-        }
-
-        return $date->copy()->setTimezone($tz)->startOfDay()->lte(Carbon::now($tz)->addDays((int) $horizon));
-    }
-
     public function findOccurrenceOnDate(Entry $entry, Carbon $date, bool $includeExcluded = false): ?Occurrence
     {
         $tz = $this->timezone();
         $startOfDay = $date->copy()->setTimezone($tz)->startOfDay();
         $endOfDay = $date->copy()->setTimezone($tz)->endOfDay();
-
-        if (! $this->withinUrlHorizon($date)) {
-            return null;
-        }
 
         $occurrences = $this->resolve(
             entry: $entry,
@@ -151,6 +129,8 @@ class OccurrenceResolver
         if (! $to && ! $limit && ! $representativeAt && ! $nextAfter) {
             $to = $from->copy()->addYear();
         }
+
+        $to = $this->clampToHorizon($to);
 
         $rruleParams = $this->buildRruleParams($row);
 
@@ -370,6 +350,11 @@ class OccurrenceResolver
             return collect();
         }
 
+        $horizonEnd = $this->horizonEnd();
+        if ($horizonEnd && $start->gt($horizonEnd)) {
+            return collect();
+        }
+
         $end = $this->singleDateEnd($entry, $row, $start);
         $occurrence = new Occurrence(
             entry: $entry,
@@ -429,6 +414,37 @@ class OccurrenceResolver
     private function timezone(): string
     {
         return OccurrenceWindow::timezone();
+    }
+
+    /**
+     * Last day any occurrence may start on. Open-ended rules (recurrence_end:
+     * never) would otherwise expand without limit. The bound is applied where
+     * occurrences are produced, so the route, tags, cache, API, ICS and redirect
+     * targets all inherit it. Null config disables it.
+     */
+    private function horizonEnd(): ?Carbon
+    {
+        $horizon = config('statamic-calendar.url.max_days_ahead', 730);
+
+        if ($horizon === null) {
+            return null;
+        }
+
+        return Carbon::now($this->timezone())->addDays((int) $horizon)->endOfDay();
+    }
+
+    /**
+     * Clips an explicit $to to the horizon instead of rejecting the query.
+     */
+    private function clampToHorizon(?Carbon $to): ?Carbon
+    {
+        $end = $this->horizonEnd();
+
+        if ($end === null) {
+            return $to;
+        }
+
+        return $to && $to->lt($end) ? $to : $end;
     }
 
     /**
