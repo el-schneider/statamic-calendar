@@ -63,16 +63,31 @@ class OccurrenceResolver
             ->first();
     }
 
+    /**
+     * Whether a day may be served as an occurrence URL. Open-ended rules would
+     * otherwise resolve any future date, so the route is capped at
+     * url.max_days_ahead. The fallback matches the shipped default because
+     * Laravel's shallow config merge leaves the key absent in published configs.
+     */
+    public function withinUrlHorizon(Carbon $date): bool
+    {
+        $tz = $this->timezone();
+        $horizon = config('statamic-calendar.url.max_days_ahead', 730);
+
+        if ($horizon === null) {
+            return true;
+        }
+
+        return $date->copy()->setTimezone($tz)->startOfDay()->lte(Carbon::now($tz)->addDays((int) $horizon));
+    }
+
     public function findOccurrenceOnDate(Entry $entry, Carbon $date, bool $includeExcluded = false): ?Occurrence
     {
         $tz = $this->timezone();
         $startOfDay = $date->copy()->setTimezone($tz)->startOfDay();
         $endOfDay = $date->copy()->setTimezone($tz)->endOfDay();
 
-        // Open-ended rules (recurrence_end: never) would otherwise resolve any
-        // future date, so a stray URL can mint pages decades out.
-        $horizon = config('statamic-calendar.url.max_days_ahead');
-        if ($horizon !== null && $startOfDay->gt(Carbon::now($tz)->addDays((int) $horizon))) {
+        if (! $this->withinUrlHorizon($date)) {
             return null;
         }
 

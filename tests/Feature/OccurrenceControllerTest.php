@@ -7,6 +7,7 @@ use ElSchneider\StatamicCalendar\Facades\Occurrences;
 use ElSchneider\StatamicCalendar\Http\Controllers\OccurrenceController;
 use ElSchneider\StatamicCalendar\Occurrences\OccurrenceResolver;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\File;
 use Statamic\CP\LivePreview;
 use Statamic\Facades\Collection;
@@ -260,7 +261,7 @@ test('occurrence beyond the max_days_ahead horizon is a 404', function () {
         'recurrence_end' => 'never',
     ]]);
 
-    app(OccurrenceController::class)->show(2029, 10, 29, 'open-ended-event');
+    app(OccurrenceController::class)->show(2029, 10, 25, 'open-ended-event');
 })->throws(NotFoundHttpException::class);
 
 test('occurrence inside the max_days_ahead horizon renders', function () {
@@ -300,3 +301,20 @@ test('max_days_ahead null disables the occurrence horizon', function () {
 
     expect($response->data()['start']->toDateString())->toBe('2048-10-29');
 });
+
+test('occurrence horizon applies its default when the config key is absent', function () {
+    Carbon::setTestNow('2026-10-25 12:00:00');
+    config()->set('statamic-calendar.url.strategy', 'date_segments');
+    config()->set('statamic-calendar.url', Arr::except(config('statamic-calendar.url'), ['max_days_ahead']));
+
+    occurrenceControllerEntry('open-ended-event', [[
+        'start_date' => '2026-10-29',
+        'start_time' => '16:00',
+        'is_recurring' => true,
+        'frequency' => 'weekly',
+        'weekdays' => ['TH'],
+        'recurrence_end' => 'never',
+    ]]);
+
+    app(OccurrenceController::class)->show(2029, 10, 25, 'open-ended-event');
+})->throws(NotFoundHttpException::class);
