@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 use Carbon\Carbon;
 use ElSchneider\StatamicCalendar\Occurrences\OccurrenceCache;
+use Illuminate\Cache\Events\KeyWritten;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Event;
 
 beforeEach(function () {
     config()->set('statamic-calendar.timezone', 'Europe/Berlin');
@@ -94,3 +96,24 @@ function cachedOccurrence(string $title, string $start, ?string $end = null): ar
         'url' => '',
     ];
 }
+
+test('a rebuild that is overwritten right after writing still serves its own occurrences', function () {
+    Carbon::setTestNow('2026-06-12 12:00:00 Europe/Berlin');
+    config()->set('statamic-calendar.url.max_days_ahead', 730);
+
+    // Simulates a concurrent writer: the first snapshot write is removed straight after it lands.
+    $removed = false;
+    Event::listen(KeyWritten::class, function (KeyWritten $event) use (&$removed) {
+        if (! $removed && $event->key === 'statamic_calendar.occurrences.v2') {
+            $removed = true;
+            Cache::forget($event->key);
+        }
+    });
+
+    try {
+        expect(app(OccurrenceCache::class)->all())->toBeEmpty()
+            ->and($removed)->toBeTrue();
+    } finally {
+        Event::forget(KeyWritten::class);
+    }
+});
