@@ -424,13 +424,13 @@ class OccurrenceResolver
      */
     private function horizonEnd(): ?Carbon
     {
-        $horizon = config('statamic-calendar.url.max_days_ahead', 730);
+        $days = OccurrenceWindow::urlHorizonDays();
 
-        if ($horizon === null) {
+        if ($days === null) {
             return null;
         }
 
-        return Carbon::now($this->timezone())->addDays((int) $horizon)->endOfDay();
+        return Carbon::now($this->timezone())->addDays($days)->endOfDay();
     }
 
     /**

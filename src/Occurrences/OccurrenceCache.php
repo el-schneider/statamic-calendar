@@ -291,11 +291,15 @@ class OccurrenceCache
 
     /**
      * The suffix changes whenever cached payloads change shape or meaning (URLs
-     * gained the site path in v2), so upgrades rebuild instead of serving stale data.
+     * gained the site path in v2), so upgrades rebuild instead of serving stale
+     * data. The horizon is part of the key too: a snapshot expanded under another
+     * url.max_days_ahead holds occurrences the current config no longer allows.
      */
     private function cacheKey(): string
     {
-        return config('statamic-calendar.cache.key', 'statamic_calendar.occurrences').'.v2';
+        $horizon = OccurrenceWindow::urlHorizonDays() ?? 'none';
+
+        return config('statamic-calendar.cache.key', 'statamic_calendar.occurrences').'.v2.h'.$horizon;
     }
 
     private function daysAhead(): int
