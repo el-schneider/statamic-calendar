@@ -15,29 +15,43 @@ afterEach(fn () => Carbon::setTestNow());
 
 test('upcoming includes occurrences in progress in the configured timezone', function () {
     Carbon::setTestNow('2026-06-12 12:00:00 Europe/Berlin');
-    Cache::forever('statamic_calendar.occurrences.v2.h730', [
+    config()->set('statamic-calendar.url.max_days_ahead', 730);
+    Cache::forever('statamic_calendar.occurrences.v2', snapshot([
         cachedOccurrence('ongoing', '2026-06-12T10:00:00+02:00', '2026-06-12T13:00:00+02:00'),
         cachedOccurrence('future', '2026-06-12T14:00:00+02:00'),
         cachedOccurrence('past', '2026-06-12T08:00:00+02:00', '2026-06-12T09:00:00+02:00'),
-    ]);
+    ], horizon: 730));
 
     expect(app(OccurrenceCache::class)->upcoming()->pluck('title')->all())
         ->toBe(['ongoing', 'future']);
 });
 
-test('a snapshot expanded under a larger max_days_ahead is not served after it shrinks', function () {
+test('a snapshot expanded under another max_days_ahead is not served', function () {
     Carbon::setTestNow('2026-10-25 12:00:00 Europe/Berlin');
     config()->set('statamic-calendar.url.max_days_ahead', 730);
-
-    // Seed the snapshot under the keys an older or unfixed build would read.
-    $stale = [cachedOccurrence('beyond-horizon', '2028-10-26T16:00:00+02:00')];
-    Cache::forever('statamic_calendar.occurrences.v2', $stale);
-    Cache::forever('statamic_calendar.occurrences.v2.h730', $stale);
+    Cache::forever('statamic_calendar.occurrences.v2', snapshot([
+        cachedOccurrence('beyond-horizon', '2028-10-26T16:00:00+02:00'),
+    ], horizon: 730));
 
     config()->set('statamic-calendar.url.max_days_ahead', 30);
 
-    expect(app(OccurrenceCache::class)->all()->pluck('title')->all())
-        ->not->toContain('beyond-horizon');
+    expect(app(OccurrenceCache::class)->isBuilt())->toBeFalse();
+});
+
+test('switching max_days_ahead away and back does not revive the earlier snapshot', function () {
+    Carbon::setTestNow('2026-10-25 12:00:00 Europe/Berlin');
+    config()->set('statamic-calendar.url.max_days_ahead', 730);
+    Cache::forever('statamic_calendar.occurrences.v2', snapshot([
+        cachedOccurrence('revived', '2028-10-26T16:00:00+02:00'),
+    ], horizon: 730));
+
+    config()->set('statamic-calendar.url.max_days_ahead', 30);
+    // A rebuild under 30 overwrites the single key, so the 730 snapshot is gone.
+    Cache::forever('statamic_calendar.occurrences.v2', snapshot([], horizon: 30));
+
+    config()->set('statamic-calendar.url.max_days_ahead', 730);
+
+    expect(app(OccurrenceCache::class)->isBuilt())->toBeFalse();
 });
 
 test('caches written in an older payload format are not served', function () {
@@ -47,6 +61,14 @@ test('caches written in an older payload format are not served', function () {
 
     expect(app(OccurrenceCache::class)->all())->toBeEmpty();
 });
+
+/**
+ * @param  array<int, array<string, mixed>>  $occurrences
+ */
+function snapshot(array $occurrences, ?int $horizon): array
+{
+    return ['horizon' => $horizon, 'occurrences' => $occurrences];
+}
 
 function cachedOccurrence(string $title, string $start, ?string $end = null): array
 {

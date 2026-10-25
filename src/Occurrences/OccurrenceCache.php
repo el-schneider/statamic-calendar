@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Str;
+use RuntimeException;
 use Statamic\Facades\Entry;
 
 class OccurrenceCache
@@ -28,7 +29,7 @@ class OccurrenceCache
             $this->rebuild();
         }
 
-        $cached = Cache::get($this->cacheKey(), []);
+        $cached = $this->snapshot() ?? throw new RuntimeException('Occurrence snapshot missing after rebuild.');
 
         $occurrences = collect($cached)->map(fn (array $data) => OccurrenceData::fromArray($data));
 
@@ -117,7 +118,7 @@ class OccurrenceCache
 
     public function isBuilt(): bool
     {
-        return Cache::has($this->cacheKey());
+        return $this->snapshot() !== null;
     }
 
     /**
@@ -203,7 +204,10 @@ class OccurrenceCache
 
         $occurrences = $occurrences->sortByDesc('start')->values();
 
-        Cache::forever($this->cacheKey(), $occurrences->all());
+        Cache::forever($this->cacheKey(), [
+            'horizon' => OccurrenceWindow::urlHorizonDays(),
+            'occurrences' => $occurrences->all(),
+        ]);
     }
 
     private function extractTeaser($entry): ?string
@@ -292,14 +296,31 @@ class OccurrenceCache
     /**
      * The suffix changes whenever cached payloads change shape or meaning (URLs
      * gained the site path in v2), so upgrades rebuild instead of serving stale
-     * data. The horizon is part of the key too: a snapshot expanded under another
-     * url.max_days_ahead holds occurrences the current config no longer allows.
+     * data. Payloads older than the envelope in snapshot() are unreadable and
+     * rebuild on first use.
      */
     private function cacheKey(): string
     {
-        $horizon = OccurrenceWindow::urlHorizonDays() ?? 'none';
+        return config('statamic-calendar.cache.key', 'statamic_calendar.occurrences').'.v2';
+    }
 
-        return config('statamic-calendar.cache.key', 'statamic_calendar.occurrences').'.v2.h'.$horizon;
+    /**
+     * The stored occurrences, or null when none exists or they were expanded under
+     * a different url.max_days_ahead. Occurrences depend on the horizon, so a
+     * mismatch rebuilds in place instead of serving them. One key holds one
+     * snapshot, so an old horizon's snapshot cannot be revived later.
+     *
+     * @return array<int, array<string, mixed>>|null
+     */
+    private function snapshot(): ?array
+    {
+        $stored = Cache::get($this->cacheKey());
+
+        if (! is_array($stored) || ! array_key_exists('horizon', $stored) || ! array_key_exists('occurrences', $stored)) {
+            return null;
+        }
+
+        return $stored['horizon'] === OccurrenceWindow::urlHorizonDays() ? $stored['occurrences'] : null;
     }
 
     private function daysAhead(): int
