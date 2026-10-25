@@ -3,10 +3,14 @@
 declare(strict_types=1);
 
 use Carbon\Carbon;
+use ElSchneider\StatamicCalendar\Occurrences\Occurrence;
 use ElSchneider\StatamicCalendar\Occurrences\OccurrenceCache;
+use ElSchneider\StatamicCalendar\Occurrences\OccurrenceResolver;
 use Illuminate\Cache\Events\KeyWritten;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Event;
+use Statamic\Entries\Entry;
+use Statamic\Facades\Entry as EntryFacade;
 
 beforeEach(function () {
     config()->set('statamic-calendar.timezone', 'Europe/Berlin');
@@ -101,6 +105,26 @@ test('a rebuild that is overwritten right after writing still serves its own occ
     Carbon::setTestNow('2026-06-12 12:00:00 Europe/Berlin');
     config()->set('statamic-calendar.url.max_days_ahead', 730);
 
+    $entry = Mockery::mock(Entry::class);
+    $entry->shouldReceive('published')->andReturnTrue();
+    $entry->shouldReceive('id')->andReturn('race-event');
+    $entry->shouldReceive('slug')->andReturn('race-event');
+    $entry->shouldReceive('urlWithoutRedirect')->andReturn('/events/race-event');
+    $entry->shouldReceive('get')->with('dates')->andReturn([['start_date' => '2026-06-20']]);
+    $entry->shouldReceive('get')->with('title')->andReturn('Race event');
+    $entry->shouldReceive('get')->andReturn(null);
+
+    $builder = Mockery::mock();
+    $builder->shouldReceive('where')->andReturnSelf();
+    $builder->shouldReceive('get')->andReturn(collect([$entry]));
+    EntryFacade::shouldReceive('query')->andReturn($builder);
+
+    $resolver = Mockery::mock(OccurrenceResolver::class);
+    $resolver->shouldReceive('resolve')->andReturn(collect([
+        new Occurrence($entry, Carbon::parse('2026-06-20 10:00'), null, false, false),
+    ]));
+    app()->instance(OccurrenceResolver::class, $resolver);
+
     // Simulates a concurrent writer: the first snapshot write is removed straight after it lands.
     $removed = false;
     Event::listen(KeyWritten::class, function (KeyWritten $event) use (&$removed) {
@@ -111,7 +135,7 @@ test('a rebuild that is overwritten right after writing still serves its own occ
     });
 
     try {
-        expect(app(OccurrenceCache::class)->all())->toBeEmpty()
+        expect(app(OccurrenceCache::class)->all()->pluck('title')->all())->toBe(['Race event'])
             ->and($removed)->toBeTrue();
     } finally {
         Event::forget(KeyWritten::class);
