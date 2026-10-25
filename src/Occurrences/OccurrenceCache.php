@@ -11,7 +11,6 @@ use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Str;
-use RuntimeException;
 use Statamic\Facades\Entry;
 
 class OccurrenceCache
@@ -25,11 +24,9 @@ class OccurrenceCache
      */
     public function all(bool $includeExcluded = false): Collection
     {
-        if (! $this->isBuilt()) {
-            $this->rebuild();
-        }
-
-        $cached = $this->snapshot() ?? throw new RuntimeException('Occurrence snapshot missing after rebuild.');
+        // A rebuild returns the data it just wrote. Re-reading the key here could
+        // miss a concurrent overwrite and fail a request that rebuilt successfully.
+        $cached = $this->snapshot() ?? $this->rebuildSnapshot();
 
         $occurrences = collect($cached)->map(fn (array $data) => OccurrenceData::fromArray($data));
 
@@ -127,11 +124,24 @@ class OccurrenceCache
      */
     public function rebuild(): void
     {
-        Cache::lock('statamic_calendar.rebuild', 60)->block(5, fn () => $this->rebuildLocked());
+        $this->rebuildSnapshot();
     }
 
-    private function rebuildLocked(): void
+    /**
+     * @return array<int, array<string, mixed>> The payload written by this call.
+     */
+    private function rebuildSnapshot(): array
     {
+        return Cache::lock('statamic_calendar.rebuild', 60)->block(5, fn () => $this->rebuildLocked());
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function rebuildLocked(): array
+    {
+        $horizon = OccurrenceWindow::urlHorizonDays();
+
         /** @var OccurrenceResolver $resolver */
         $resolver = App::make(OccurrenceResolver::class);
         $entries = Entry::query()->where('collection', $this->collection())->get();
@@ -202,12 +212,14 @@ class OccurrenceCache
             }
         }
 
-        $occurrences = $occurrences->sortByDesc('start')->values();
+        $payload = $occurrences->sortByDesc('start')->values()->all();
 
         Cache::forever($this->cacheKey(), [
-            'horizon' => OccurrenceWindow::urlHorizonDays(),
-            'occurrences' => $occurrences->all(),
+            'horizon' => $horizon,
+            'occurrences' => $payload,
         ]);
+
+        return $payload;
     }
 
     private function extractTeaser($entry): ?string

@@ -54,12 +54,15 @@ test('switching max_days_ahead away and back does not revive the earlier snapsho
     expect(app(OccurrenceCache::class)->isBuilt())->toBeFalse();
 });
 
-test('caches written in an older payload format are not served', function () {
-    Cache::forever('statamic_calendar.occurrences', [
-        cachedOccurrence('stale', '2026-06-12T14:00:00+02:00'),
+test('a bare snapshot written before the horizon envelope is rebuilt, not served', function () {
+    Carbon::setTestNow('2026-06-12 12:00:00 Europe/Berlin');
+    config()->set('statamic-calendar.url.max_days_ahead', 730);
+    // Pre-envelope installs stored the occurrence list directly under the current key.
+    Cache::forever('statamic_calendar.occurrences.v2', [
+        cachedOccurrence('legacy', '2026-06-12T14:00:00+02:00'),
     ]);
 
-    expect(app(OccurrenceCache::class)->all())->toBeEmpty();
+    expect(app(OccurrenceCache::class)->isBuilt())->toBeFalse();
 });
 
 /**
