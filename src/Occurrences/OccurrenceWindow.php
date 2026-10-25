@@ -86,4 +86,16 @@ class OccurrenceWindow
             ?: 'UTC'
         );
     }
+
+    /**
+     * Days ahead that occurrences are bounded to. Null disables the bound. The
+     * fallback matches the shipped default because Laravel's shallow config
+     * merge leaves the key absent in published configs.
+     */
+    public static function urlHorizonDays(): ?int
+    {
+        $days = config('statamic-calendar.url.max_days_ahead', 730);
+
+        return $days === null ? null : (int) $days;
+    }
 }

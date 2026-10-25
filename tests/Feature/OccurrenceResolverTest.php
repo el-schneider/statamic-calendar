@@ -321,7 +321,10 @@ function sampleRescheduledRow(array $overrides = []): array
     ], $overrides);
 }
 
-afterEach(fn () => Mockery::close());
+afterEach(function () {
+    Carbon::setTestNow();
+    Mockery::close();
+});
 
 test('excluded occurrences are hidden by default', function () {
     $occurrences = resolveFor([sampleRescheduledRow()], Carbon::parse('2026-03-01'));
@@ -424,4 +427,82 @@ test('limit counts excluded occurrences when the caller opts in', function () {
     // "N visible items", otherwise the result size is unbounded.
     expect($occurrences->pluck('start')->map(fn ($d) => $d->format('Y-m-d'))->all())
         ->toBe(['2026-03-02', '2026-03-09', '2026-03-16']);
+});
+
+test('open-ended recurrence never yields an occurrence past the horizon', function () {
+    Carbon::setTestNow('2026-10-25 12:00:00');
+    config()->set('statamic-calendar.url.max_days_ahead', 730);
+
+    $rows = [[
+        'start_date' => '2026-10-29',
+        'start_time' => '16:00',
+        'is_recurring' => true,
+        'frequency' => 'WEEKLY',
+        'interval' => 1,
+        'weekdays' => ['TH'],
+        'recurrence_end' => 'never',
+    ]];
+
+    $occurrences = (new OccurrenceResolver)->resolve(entryWithDates($rows), Carbon::parse('2026-10-25', 'UTC'), Carbon::parse('2060-01-01', 'UTC'));
+    $lastStart = $occurrences->last()->start;
+
+    expect($lastStart->lte(Carbon::now()->addDays(730)->endOfDay()))->toBeTrue()
+        ->and($lastStart->gte(Carbon::now()->addDays(700)))->toBeTrue();
+});
+
+test('horizon includes the whole last day in the event timezone and drops the next', function () {
+    // now = 2026-10-25 13:00 Berlin (CET after the 25 Oct switch), +30 days = 2026-11-24 13:00.
+    // The last allowed day is 2026-11-24 in full. A late-evening start on it must survive.
+    Carbon::setTestNow('2026-10-25 12:00:00 UTC');
+    config()->set('statamic-calendar.url.max_days_ahead', 30);
+
+    $rows = [[
+        'start_date' => '2026-11-20',
+        'start_time' => '23:00',
+        'is_recurring' => true,
+        'frequency' => 'DAILY',
+        'interval' => 1,
+        'recurrence_end' => 'never',
+    ]];
+
+    $starts = (new OccurrenceResolver)->resolve(entryWithDates($rows), Carbon::parse('2026-11-01', 'UTC'), Carbon::parse('2027-01-01', 'UTC'))
+        ->pluck('start')->map(fn ($d) => $d->format('Y-m-d H:i'))->all();
+
+    expect($starts)->toContain('2026-11-24 23:00')
+        ->and($starts)->not->toContain('2026-11-25 23:00');
+});
+
+test('single date beyond the horizon has no occurrence, URL, or next-upcoming target', function () {
+    Carbon::setTestNow('2026-10-25 12:00:00');
+    config()->set('statamic-calendar.url.max_days_ahead', 730);
+
+    $entry = entryWithDates([[
+        'start_date' => '2031-01-15',
+        'start_time' => '10:00',
+        'is_recurring' => false,
+    ]]);
+    $resolver = new OccurrenceResolver;
+
+    expect($resolver->resolve($entry, Carbon::parse('2026-10-25', 'UTC'), Carbon::parse('2040-01-01', 'UTC'))->all())->toBe([])
+        ->and($resolver->findOccurrenceOnDate($entry, Carbon::parse('2031-01-15', 'UTC')))->toBeNull()
+        ->and($resolver->nextUpcoming($entry, Carbon::parse('2026-10-25', 'UTC')))->toBeNull();
+});
+
+test('max_days_ahead null leaves open-ended recurrences unbounded', function () {
+    Carbon::setTestNow('2026-10-25 12:00:00');
+    config()->set('statamic-calendar.url.max_days_ahead', null);
+
+    $rows = [[
+        'start_date' => '2026-10-29',
+        'start_time' => '16:00',
+        'is_recurring' => true,
+        'frequency' => 'WEEKLY',
+        'interval' => 1,
+        'weekdays' => ['TH'],
+        'recurrence_end' => 'never',
+    ]];
+
+    $found = (new OccurrenceResolver)->findOccurrenceOnDate(entryWithDates($rows), Carbon::parse('2048-10-29', 'UTC'));
+
+    expect($found)->not->toBeNull();
 });

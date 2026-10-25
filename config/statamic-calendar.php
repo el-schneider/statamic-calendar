@@ -87,6 +87,15 @@ return [
         */
         'redirect_expired' => true,
 
+        /*
+        | Occurrence URLs for dates more than this many days ahead return 404,
+        | and redirects never point past it. This applies to every occurrence,
+        | including single dates and finite recurrences, not only open-ended
+        | ones. Null disables the limit. Existing published configs lack this
+        | key, so the code falls back to 730 until they are republished.
+        */
+        'max_days_ahead' => 730,
+
         'query_string' => [
             'param' => 'date',
             'format' => 'Y-m-d',

@@ -24,11 +24,9 @@ class OccurrenceCache
      */
     public function all(bool $includeExcluded = false): Collection
     {
-        if (! $this->isBuilt()) {
-            $this->rebuild();
-        }
-
-        $cached = Cache::get($this->cacheKey(), []);
+        // A rebuild returns the data it just wrote. Re-reading the key here could
+        // miss a concurrent overwrite and fail a request that rebuilt successfully.
+        $cached = $this->snapshot() ?? $this->rebuildSnapshot();
 
         $occurrences = collect($cached)->map(fn (array $data) => OccurrenceData::fromArray($data));
 
@@ -117,7 +115,7 @@ class OccurrenceCache
 
     public function isBuilt(): bool
     {
-        return Cache::has($this->cacheKey());
+        return $this->snapshot() !== null;
     }
 
     /**
@@ -126,11 +124,24 @@ class OccurrenceCache
      */
     public function rebuild(): void
     {
-        Cache::lock('statamic_calendar.rebuild', 60)->block(5, fn () => $this->rebuildLocked());
+        $this->rebuildSnapshot();
     }
 
-    private function rebuildLocked(): void
+    /**
+     * @return array<int, array<string, mixed>> The payload written by this call.
+     */
+    private function rebuildSnapshot(): array
     {
+        return Cache::lock('statamic_calendar.rebuild', 60)->block(5, fn () => $this->rebuildLocked());
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function rebuildLocked(): array
+    {
+        $horizon = OccurrenceWindow::urlHorizonDays();
+
         /** @var OccurrenceResolver $resolver */
         $resolver = App::make(OccurrenceResolver::class);
         $entries = Entry::query()->where('collection', $this->collection())->get();
@@ -201,9 +212,14 @@ class OccurrenceCache
             }
         }
 
-        $occurrences = $occurrences->sortByDesc('start')->values();
+        $payload = $occurrences->sortByDesc('start')->values()->all();
 
-        Cache::forever($this->cacheKey(), $occurrences->all());
+        Cache::forever($this->cacheKey(), [
+            'horizon' => $horizon,
+            'occurrences' => $payload,
+        ]);
+
+        return $payload;
     }
 
     private function extractTeaser($entry): ?string
@@ -291,11 +307,32 @@ class OccurrenceCache
 
     /**
      * The suffix changes whenever cached payloads change shape or meaning (URLs
-     * gained the site path in v2), so upgrades rebuild instead of serving stale data.
+     * gained the site path in v2), so upgrades rebuild instead of serving stale
+     * data. Payloads older than the envelope in snapshot() are unreadable and
+     * rebuild on first use.
      */
     private function cacheKey(): string
     {
         return config('statamic-calendar.cache.key', 'statamic_calendar.occurrences').'.v2';
+    }
+
+    /**
+     * The stored occurrences, or null when none exists or they were expanded under
+     * a different url.max_days_ahead. Occurrences depend on the horizon, so a
+     * mismatch rebuilds in place instead of serving them. One key holds one
+     * snapshot, so an old horizon's snapshot cannot be revived later.
+     *
+     * @return array<int, array<string, mixed>>|null
+     */
+    private function snapshot(): ?array
+    {
+        $stored = Cache::get($this->cacheKey());
+
+        if (! is_array($stored) || ! array_key_exists('horizon', $stored) || ! array_key_exists('occurrences', $stored)) {
+            return null;
+        }
+
+        return $stored['horizon'] === OccurrenceWindow::urlHorizonDays() ? $stored['occurrences'] : null;
     }
 
     private function daysAhead(): int

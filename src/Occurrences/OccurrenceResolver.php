@@ -130,6 +130,8 @@ class OccurrenceResolver
             $to = $from->copy()->addYear();
         }
 
+        $to = $this->clampToHorizon($to);
+
         $rruleParams = $this->buildRruleParams($row);
 
         if ($rruleParams === null) {
@@ -348,6 +350,11 @@ class OccurrenceResolver
             return collect();
         }
 
+        $horizonEnd = $this->horizonEnd();
+        if ($horizonEnd && $start->gt($horizonEnd)) {
+            return collect();
+        }
+
         $end = $this->singleDateEnd($entry, $row, $start);
         $occurrence = new Occurrence(
             entry: $entry,
@@ -407,6 +414,37 @@ class OccurrenceResolver
     private function timezone(): string
     {
         return OccurrenceWindow::timezone();
+    }
+
+    /**
+     * Last day any occurrence may start on. Open-ended rules (recurrence_end:
+     * never) would otherwise expand without limit. The bound is applied where
+     * occurrences are produced, so the route, tags, cache, API, ICS and redirect
+     * targets all inherit it. Null config disables it.
+     */
+    private function horizonEnd(): ?Carbon
+    {
+        $days = OccurrenceWindow::urlHorizonDays();
+
+        if ($days === null) {
+            return null;
+        }
+
+        return Carbon::now($this->timezone())->addDays($days)->endOfDay();
+    }
+
+    /**
+     * Clips an explicit $to to the horizon instead of rejecting the query.
+     */
+    private function clampToHorizon(?Carbon $to): ?Carbon
+    {
+        $end = $this->horizonEnd();
+
+        if ($end === null) {
+            return $to;
+        }
+
+        return $to && $to->lt($end) ? $to : $end;
     }
 
     /**

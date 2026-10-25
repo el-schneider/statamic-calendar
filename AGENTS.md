@@ -10,5 +10,5 @@
 - Template/tag output changes: verify rendered output in a real Statamic app and say what you checked.
 - Add nothing you can derive or reuse.
 - Fix the cause, not the reported symptom.
-- No abstraction with a single caller.
+- Extract a helper only when its name explains a non-obvious step, even with one caller. Otherwise inline it.
 - Let failures surface. No try/catch for tidiness.
